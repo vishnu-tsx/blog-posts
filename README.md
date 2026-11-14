@@ -35,3 +35,7 @@ How end-to-end type safety catches API and frontend mismatches early, with share
 | `assets/og-image.png` | The social card shown when the article is shared. |
 | `assets/*.svg`, `assets/*.png` | The figures. The SVGs embed their hand-drawn font, so they look the same anywhere. |
 | `assets/*.excalidraw` | Editable sources for the figures. Open one at [excalidraw.com](https://excalidraw.com) to change or export it. |
+
+## License
+
+[MIT](LICENSE).
