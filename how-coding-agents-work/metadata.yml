@@ -1,0 +1,24 @@
+# Publishing metadata for this article: page title, search snippet and social card.
+title: "How Coding Agents Work: Inside Claude Code and Codex"
+slug: how-coding-agents-work
+author: Vishnumohan R K
+date: 2026-11-14
+reading_time: "44 min"
+series: "Part 1 of 2 (Part 2: ../prompt-caching)"
+
+seo:
+  title: "How Coding Agents Work: Inside Claude Code and Codex"
+  description: "How Claude Code and Codex work: the model, the harness and the agent loop, and why one bug fix took 4 and 6 model requests of 16,000+ tokens each."
+  keywords: [coding agents, Claude Code, Codex, agent loop, harness, context window, compaction, MCP, tool calling, subagents]
+
+open_graph:
+  type: article
+  title: "How Coding Agents Work: Inside Claude Code and Codex"
+  description: "One prompt became 4 model requests in Claude Code and 6 in Codex, each carrying the whole conversation. A measured guide to the model, the harness and the agent loop."
+  image: assets/og-image.jpg
+  image_width: 1600
+  image_height: 840
+  image_alt: "How Coding Agents Work: Inside Claude Code and Codex. A Model panel and a Tools panel (read, edit, run) joined by a Harness panel with a loop arrow."
+
+twitter:
+  card: summary_large_image
