@@ -4,6 +4,8 @@
 
 By Vishnumohan R K · 14 November 2026 · 30 min read
 
+![Prompt Caching Explained: How it works in Claude Code and Codex. Request 1 and Request 2 joined by a cache; Request 2 reuses the same first rows and adds one new row.](assets/og-image.jpg)
+
 Prompt caching is what lets a coding agent resend your whole session on every request without paying full price each time. In [Part 1 of this series](../how-coding-agents-work/README.md), one prompt to Claude Code became 4 model requests carrying 179,640 input tokens, and 90.5% of those tokens came from the provider's cache.
 
 Priced at API list rates, that task came to $0.20 with the cache and $0.74 without it, and Codex's run of the same task came to $0.05 instead of $0.24. Both ran on subscriptions, where the same difference shows up as plan usage and waiting time rather than dollars. The gap grows as a session gets longer, and a few everyday actions, such as switching models or coming back after a long break, take it away for a request or more.

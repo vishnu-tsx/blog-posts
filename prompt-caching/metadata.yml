@@ -1,0 +1,24 @@
+# Publishing metadata for this article: page title, search snippet and social card.
+title: "Prompt Caching Explained: How It Works in Claude Code and Codex"
+slug: prompt-caching
+author: Vishnumohan R K
+date: 2026-11-14
+reading_time: "30 min"
+series: "Part 2 of 2 (Part 1: ../how-coding-agents-work)"
+
+seo:
+  title: "Prompt Caching Explained: Claude Code and Codex"
+  description: "How prompt caching works in Claude Code and Codex: what it saves (about 80% in our tests), what breaks the cache, how long it lasts and how to check it."
+  keywords: [prompt caching, Claude Code, Codex, cache hit rate, cache TTL, KV cache, LLM cost, Anthropic API, OpenAI API]
+
+open_graph:
+  type: article
+  title: "Prompt Caching Explained: How It Works in Claude Code and Codex"
+  description: "In one Claude Code task, 90.5% of input tokens came from cache, so it cost $0.20 at API prices instead of $0.74. What prompt caching saves, what breaks it and how to keep it warm."
+  image: assets/og-image.jpg
+  image_width: 1600
+  image_height: 840
+  image_alt: "Prompt Caching Explained: How it works in Claude Code and Codex. Request 1 and Request 2 joined by a cache; Request 2 reuses the same first rows and adds one new row."
+
+twitter:
+  card: summary_large_image
