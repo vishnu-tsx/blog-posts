@@ -4,7 +4,7 @@
 
 By Vishnumohan R K · 14 November 2026 · 44 min read
 
-![How Coding Agents Work: Inside Claude Code and Codex. A Model panel and a Tools panel (read, edit, run) joined by a Harness panel with a loop arrow.](assets/og-image.jpg)
+![How Coding Agents Work: inside Claude Code and Codex. For one prompt to fix two failing tests, Claude Code made 4 model requests and Codex made 6.](assets/og-image.png)
 
 A coding agent such as Claude Code or Codex is a language model inside a harness. The harness is a program that sends the model your request along with instructions and tool definitions, runs the tools the model asks for, sends the results back, and repeats until the model gives a final answer.
 

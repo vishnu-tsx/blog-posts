@@ -15,10 +15,10 @@ open_graph:
   type: article
   title: "How Coding Agents Work: Inside Claude Code and Codex"
   description: "One prompt became 4 model requests in Claude Code and 6 in Codex, each carrying the whole conversation. A measured guide to the model, the harness and the agent loop."
-  image: assets/og-image.jpg
-  image_width: 1600
-  image_height: 840
-  image_alt: "How Coding Agents Work: Inside Claude Code and Codex. A Model panel and a Tools panel (read, edit, run) joined by a Harness panel with a loop arrow."
+  image: assets/og-image.png
+  image_width: 2400
+  image_height: 1260
+  image_alt: "How Coding Agents Work: inside Claude Code and Codex. For one prompt to fix two failing tests, Claude Code made 4 model requests and Codex made 6."
 
 twitter:
   card: summary_large_image
