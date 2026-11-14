@@ -1,6 +1,8 @@
 # End-to-End Type Safety: Keeping Your API and Frontend in Sync
 
 By Vishnumohan R K · 10 September 2026 · 8 min read · Originally published on [CodeWalnut](https://www.codewalnut.com/insights/end-to-end-type-safety-keeping-your-api-and-frontend-in-sync)
+
+![End-to-End Type Safety: Keeping Your API and Frontend in Sync. An API panel and a Frontend panel joined by a shared contract document.](assets/og-image.jpg)
 A frontend and backend can each pass their type checks and still disagree on the data they exchange.
 
 On one of the projects that I was working on, the frontend was built against an agreed response format. The backend response shape changed during implementation, and the mismatch surfaced when we connected the two. Each codebase’s type checks only covered its own version of the response.

@@ -1,0 +1,24 @@
+# Publishing metadata for this article, as published on CodeWalnut on 10 September 2026.
+title: "End-to-End Type Safety: Keeping Your API and Frontend in Sync"
+slug: end-to-end-type-safety
+author: Vishnumohan R K
+date: 2026-09-10
+reading_time: "8 min"
+canonical_url: https://www.codewalnut.com/insights/end-to-end-type-safety-keeping-your-api-and-frontend-in-sync
+
+seo:
+  title: "End-to-End Type Safety: Keeping Your API and Frontend in Sync"
+  description: "Learn how end-to-end type safety catches API and frontend mismatches early, with shared contracts, runtime validation, and examples from real projects."
+  keywords: [end-to-end type safety, TypeScript, API contracts, OpenAPI, Orval, tRPC, GraphQL Code Generator, Kysely, runtime validation, monorepo]
+
+open_graph:
+  type: article
+  title: "End-to-End Type Safety: Keeping Your API and Frontend in Sync"
+  description: "Learn how end-to-end type safety catches API and frontend mismatches early, with shared contracts, runtime validation, and examples from real projects."
+  image: assets/og-image.jpg
+  image_width: 1600
+  image_height: 838
+  image_alt: "End-to-End Type Safety: Keeping Your API and Frontend in Sync. An API panel and a Frontend panel joined by a shared contract document."
+
+twitter:
+  card: summary_large_image
