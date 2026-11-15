@@ -270,7 +270,9 @@ The first request after a long break is the expensive one, and it grows with the
 
 At Opus 5.5's API prices, writing those 900,000 tokens with a 1-hour lifetime costs $7.20, against $0.18 to read them from a warm cache. On a subscription the cost shows up as plan usage instead of dollars.
 
-Claude Code now handles part of this. Since version 2.1.299, a conversation of 200,000 tokens or more left idle for about 54 minutes is compacted before its 1-hour cache expires, and the terminal shows "Compacted while idle, before the prompt cache expired". Your next message then sends the short summary. The summary request uses some plan usage while you are away. It runs only on the 1-hour lifetime, and you can turn it off with the [`idleCompaction`](https://code.claude.com/docs/en/settings-reference) setting.
+Claude Code now handles part of this. Since version 2.1.290, a conversation of 200,000 tokens or more left idle for about 54 minutes is compacted before its 1-hour cache expires, and the terminal shows "Compacted while idle, before the prompt cache expired". Your next message then sends the short summary. The summary request uses some plan usage while you are away. You can turn it off with the [`idleCompaction`](https://code.claude.com/docs/en/settings-reference#idlecompaction) setting.
+
+It runs only on the 1-hour lifetime, in the terminal, the VS Code extension and the desktop app's Code tab, and only while your computer stays awake. It didn't run in my sessions driven through the Agent SDK: on the day my terminal test compacted while idle, a 279,000-token conversation I ran from another app on the SDK sat idle for 91 minutes, and its next request wrote 269,622 tokens to the cache.
 
 ## What prompt caching costs and saves
 Prompt caching lowers the price of the repeated part of each request, and in agent sessions the repeated part is most of the request. How much you save depends on the read price, the write price and how many times each prefix is read.
@@ -465,4 +467,4 @@ The client-project figures come from the two session files of that one Codex des
 
 **Other:** Docker, [Docker build cache](https://docs.docker.com/build/cache/)
 
-**Changelog:** 10 November 2026, first version. 15 November 2026: written in the first person, source citations stated directly, measurement details moved to the method section, and figures added from a six-week client thread.
+**Changelog:** 10 November 2026, first version. 15 November 2026: written in the first person, source citations stated directly, measurement details moved to the method section, and figures added from a six-week client thread; idle compaction's first version corrected to 2.1.290, and where it runs added.
