@@ -58,7 +58,9 @@ The model is a large language model (LLM). It reads text (and images, such as a 
 
 A language model reads a sequence of tokens (pieces of text, explained below) and predicts the next one. The software appends that token and asks again, one token at a time, until the model signals that it has finished. Everything an agent produces, from a sentence to a tool call, is the model writing tokens this way.
 
-Pretraining on large amounts of text teaches the prediction. Post-training then turns the model into an assistant: fine-tuning on examples, and [reinforcement learning](https://openai.com/index/introducing-codex/), in which the model attempts tasks such as fixing a bug and is rewarded when the result is good, for example when the tests pass. Post-training is why current models make capable agents, and why they reply in a predictable structure that a program can act on.
+Pretraining on large amounts of text teaches the prediction. Post-training then turns the model into an assistant: fine-tuning on examples, and reinforcement learning, in which the model attempts tasks such as fixing a bug and is rewarded when the result is good, for example when the tests pass.
+
+OpenAI says it [trained its first Codex model this way](https://openai.com/index/introducing-codex/), on real-world coding tasks. Post-training is why current models make capable agents, and why they reply in a predictable structure that a program can act on.
 
 The model knows what was in its training data, up to a cutoff date: June 2026 for current Claude models, and 30 April 2026 for GPT-6.1 Sol. A library released after that date is unknown to the model until the agent reads its documentation or its installed source with a tool.
 
