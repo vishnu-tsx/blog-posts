@@ -8,7 +8,7 @@ Long-form engineering articles. Each folder holds one article, its figures and i
 
 How Claude Code and Codex work: the model, the harness and the agent loop, and why one bug fix took 4 and 6 model requests of 16,000+ tokens each.
 
-14 November 2026 · 47 min read · Part 1 of 2
+14 November 2026 · 49 min read · Part 1 of 2
 
 ## [Prompt Caching Explained: How It Works in Claude Code and Codex](prompt-caching/README.md)
 

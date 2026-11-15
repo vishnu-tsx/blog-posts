@@ -2,7 +2,7 @@
 
 *What happens when you press Enter: the model, the harness, the loop, and every term in between, measured in both tools.*
 
-By Vishnumohan R K · 14 November 2026 · 47 min read
+By Vishnumohan R K · 14 November 2026 · 49 min read
 
 ![How Coding Agents Work: inside Claude Code and Codex. The model only writes text; the harness does the work. The model asks the harness for a tool and gets the result back, and the harness reads, edits and runs commands on your machine.](assets/og-image.png)
 
@@ -193,6 +193,8 @@ When the model asks for several tools in one reply, as Claude Code did in its th
 
 These are single runs, so they show how the loop behaves, not which tool is faster. In an earlier Codex run, the same prompt took 4 requests.
 
+Real tasks run much longer. On a client project, one brief to an implementing agent in Claude Code became 836 requests and 857 tool calls over 3 hours 12 minutes, with five compactions along the way.
+
 ### Requests you never see
 Both harnesses also send small requests that do not appear in the conversation:
 
@@ -200,6 +202,8 @@ Both harnesses also send small requests that do not appear in the conversation:
 - **Codex** sends a start-up "prewarm" request on the session's model, and a thread-title request to GPT-5.6 Luna (about 6,800 tokens).
 
 Compaction, covered below, is also a full request. Neither tool lists these requests one by one in its normal interface.
+
+Approval reviewers make requests too. Codex's auto-review agent runs as a separate session beside yours: in one of my browser-test runs, the tester made 313 requests and its auto-review agent made 672. Across my Codex sessions from 18 October to 15 November 2026, auto-review made 7,728 requests, against 7,487 by the models doing the work.
 
 ## What is tool calling?
 Tool calling is how a model asks the harness to do something. The harness describes each tool to the model, the model replies with a structured request naming a tool and its inputs, and the harness runs it and sends back the result.
@@ -446,6 +450,18 @@ The trade-off is cost. A subagent keeps your main context clean, but it makes it
 
 Both tools also offer ways to coordinate many agents: Claude Code has agent teams (experimental) and dynamic workflows, and Codex agents can message each other and take follow-up tasks. The [glossary](#glossary) defines them.
 
+### From practice: 116 agents on two vendors' models
+
+On a client's frontend refactor, my lead agent in Claude Code handed 116 tasks to separate agents over two weeks: 64 on Claude Opus 5.5, 50 on GPT-6 Astra and 2 on GPT-6.1 Sol. Most were reviews. The agent that wrote the code never reviewed it: each reviewer started as its own thread, without the writer's context.
+
+Reviewers on both vendors' models caught the writer overstating its own work: "15 typed hooks, but the clean-up added 13", and "12 commits, not 14".
+
+A reviewer finds what its brief asks for, though. My early briefs asked for any difference from the old code, never who would hit it or how often. Rare cases came back as regressions, and, in the lead agent's words, "fixes then needed their own fixes, five times over." It now sizes every finding before it recommends a fix.
+
+In the final review round, six reviewers read the code and tests, and their findings made a 19-item fix list. A seventh only used the old and new builds in a browser. It found the two regressions the others had missed: after an outage, issue counts stayed empty until a reload, and Retry reset colours to their defaults.
+
+Delegation keeps the reports short, not the lead's context. In the last two days, 45 agents sent back reports with a median of about 2,600 characters, but the lead ran 1,632 shell commands of its own to check their work and compacted 14 times.
+
 ---
 
 *Extending the agent*
@@ -680,6 +696,16 @@ Codex can also send approval requests to a separate reviewer agent instead of yo
 
 Claude Code also saves a [checkpoint](https://code.claude.com/docs/en/checkpointing) at every prompt, and `/rewind` restores your files or the conversation to that point. Checkpoints cannot undo actions on remote systems, such as a database change or a deployment.
 
+### From practice: what the classifier and the sandbox stopped
+
+Over two weeks of the client refactor described under [subagents](#what-are-subagents), Claude Code's auto-mode classifier blocked 6 of my lead agent's 8,542 shell commands. Two were exactly what it is for: deleting a remote branch with `git push origin --delete` after I had told the agent to carry on alone overnight, and searching my old session logs for GitHub token strings. Another was a harmless read of test files, blocked without a reason.
+
+The agent didn't work around the block. It wrote "I won't work around it; I'll leave it for you in the morning", and I approved the deletion when I was back.
+
+In Codex, the sandbox stopped my browser-testing agents from starting local containers, restarting the backend to test outages and writing their reports outside the project. Each time, the agent asked to run the command outside the sandbox with a one-line reason, such as "May I stop the local backend owned by this run to test the required 502 outage journeys?".
+
+There were 23, 21 and 49 such requests in three runs, and with auto-review on, a reviewer agent judged each one instead of me.
+
 ## Where they run: CLI, IDE, desktop app, web and SDK
 Every Claude Code app runs the same harness, and so does every Codex app. What changes between them is where the agent runs: on your machine, with your files and settings, or in a cloud virtual machine with a fresh copy of your repository.
 
@@ -911,6 +937,8 @@ Codex's configuration reference lists the code-mode feature switch as off by def
 
 The `changelog-entry` skill was 63 lines (2,441 characters) and had identical text in both agents, in `.claude/skills/` for Claude Code and `.agents/skills/` for Codex.
 
+The "From practice" figures come from my own session logs from August to November 2026: Claude Code's session files and Codex's rollout files. I counted each request once, by its request ID or its cumulative usage record, and counted delegated agents from the records of the app that launched them. Codex's auto-review sessions are the rollouts marked as its guardian subagent. Client names are left out.
+
 ## Sources
 **Claude Code documentation** (read 10 November 2026): [How Claude Code works](https://code.claude.com/docs/en/how-claude-code-works) · [Glossary](https://code.claude.com/docs/en/glossary) · [Tools reference](https://code.claude.com/docs/en/tools-reference) · [Context window](https://code.claude.com/docs/en/context-window) · [Memory](https://code.claude.com/docs/en/memory) · [MCP](https://code.claude.com/docs/en/mcp) · [Skills](https://code.claude.com/docs/en/skills) · [Subagents](https://code.claude.com/docs/en/sub-agents) · [Permission modes](https://code.claude.com/docs/en/permission-modes) · [Extend Claude Code](https://code.claude.com/docs/en/features-overview) · [Agent loop (Agent SDK)](https://code.claude.com/docs/en/agent-sdk/agent-loop) · [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) · [Sandboxing](https://code.claude.com/docs/en/sandboxing) · [Checkpointing](https://code.claude.com/docs/en/checkpointing) · [Model configuration](https://code.claude.com/docs/en/model-config) · [Code Mode](https://code.claude.com/docs/en/code-mode) (read 15 November 2026)
 
@@ -926,4 +954,4 @@ The `changelog-entry` skill was 63 lines (2,441 characters) and had identical te
 
 **Hooks, auto-compaction and forks** (read 15 November 2026): [Claude Code hooks](https://code.claude.com/docs/en/hooks) · [Claude Code settings reference](https://code.claude.com/docs/en/settings-reference) · [Codex subagent tool definitions](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs)
 
-**Changelog:** 10 November 2026, first version. 15 November 2026: written in the first person; reasoning summaries, post-training, tokenizers and the history of code mode added; the agent loop shown in TypeScript; a compaction example from a client project added; measurement details moved to the method section; hook failures, the auto-compact setting and forks added.
+**Changelog:** 10 November 2026, first version. 15 November 2026: written in the first person; reasoning summaries, post-training, tokenizers and the history of code mode added; the agent loop shown in TypeScript; a compaction example from a client project added; measurement details moved to the method section; hook failures, the auto-compact setting, forks, and notes from practice on delegation, permissions and hidden requests added.
