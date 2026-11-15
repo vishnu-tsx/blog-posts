@@ -597,7 +597,9 @@ Instructions are not deterministic. The model usually follows CLAUDE.md, AGENTS.
 
 So use instructions for guidance and hooks for rules that must hold: block edits to secrets, run the formatter after every edit, run the tests before the agent says it is done. The trade-offs: a hook sees only the event, not your intent, and a slow hook slows every action it is attached to.
 
-A hook guards only while it runs. By default, Claude Code treats a hook that cannot start as a non-blocking error and lets the action go ahead. In one of my client trials, Node dropped off the PATH, the guard hook failed with "Executable not found in $PATH", and the trial ran on without it. Set [`"onFailure": "block"`](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails) on any hook that enforces a rule (Claude Code 2.1.295 and later).
+A hook guards only when it works. By default, Claude Code lets the action go ahead when a hook fails: when it can't start, exits with a code other than 0 or 2, times out or prints invalid JSON. In one of my client trials, Node dropped off the PATH, the guard hook failed with "Executable not found in $PATH", and the trial ran on without it.
+
+Set [`"onFailure": "block"`](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails) on any hook that enforces a rule (Claude Code 2.1.295 and later). It has no effect on hooks at the end of a turn or task (`Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`) or on hooks that run in the background. If the `Stop` hook that runs your tests breaks, for example because its script is missing, the agent finishes anyway.
 
 Test the hook in every tool your team uses, too. The same guard ran in several IDE agents. In VS Code, its "ask" answer brought up a prompt; IntelliJ's agent ignored the ask and ran the command, so in IntelliJ my guard now blocks instead of asking.
 
@@ -810,7 +812,7 @@ When an agent surprises you, look at the loop: what the harness sent in the requ
 
 **Harness:** the program around the model that builds requests, runs tools and manages context. Claude Code and Codex are harnesses.
 
-**Hook:** your script that the harness runs at a fixed point in the loop, every time: a deterministic guardrail, as long as the hook can start.
+**Hook:** your script that the harness runs at a fixed point in the loop, every time: a deterministic guardrail, as long as the hook itself doesn't fail.
 
 **Input tokens:** everything sent to the model in a request.
 
