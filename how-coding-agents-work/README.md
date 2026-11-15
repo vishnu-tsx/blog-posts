@@ -2,7 +2,7 @@
 
 *What happens when you press Enter: the model, the harness, the loop, and every term in between, measured in both tools.*
 
-By Vishnumohan R K · 14 November 2026 · 46 min read
+By Vishnumohan R K · 14 November 2026 · 47 min read
 
 ![How Coding Agents Work: inside Claude Code and Codex. The model only writes text; the harness does the work. The model asks the harness for a tool and gets the result back, and the harness reads, edits and runs commands on your machine.](assets/og-image.png)
 
@@ -341,7 +341,7 @@ The context window is the most text a model can consider in one request, includi
 
 The sizes, as each tool uses them on 10 November 2026:
 
-- **Claude Code on Claude Opus 5.5:** a 1,000,000-token window, with up to 128,000 tokens of output per request. Automatic compaction starts at about 967,000 tokens.
+- **Claude Code on Claude Opus 5.5:** a 1,000,000-token window, with up to 128,000 tokens of output per request. Automatic compaction starts at about 967,000 tokens by default.
 - **Codex on GPT-6.1 Sol:** a 500,000-token window by default, which `/status` shows as 475,000 usable. In my session it reported "98% left (22.4K used / 475K)", because its percentage leaves out a fixed 12,000-token baseline. Automatic compaction starts at 90%, about 450,000 tokens. GPT-6 models have larger windows in OpenAI's API; Codex uses its own default.
 
 What fills the window is mostly tool results: file contents, command output and search results. Both harnesses cap a single result. Claude Code saves shell output over about 30,000 characters to a file and shows the model the path and a preview; MCP results over 25,000 tokens also go to a file, and the model gets the path. Codex caps each command's output at 10,000 tokens by default.
@@ -357,7 +357,7 @@ Compaction is how an agent keeps working when the context window fills up. The h
 
 *Compaction replaces the conversation history with a summary. The fixed parts stay, and the agent gets room to keep working.*
 
-**In Claude Code**, compaction runs automatically near the limit (about 967,000 tokens on 1M-token models), or when you type `/compact`. You can add a focus, such as `/compact focus on the API changes`. After compaction, Claude Code puts back what it needs to continue:
+**In Claude Code**, compaction runs automatically near the limit (by default about 967,000 tokens on 1M-token models), or when you type `/compact`. You can add a focus, such as `/compact focus on the API changes`. After compaction, Claude Code puts back what it needs to continue:
 
 | Kept or restored after compaction | How |
 |---|---|
@@ -372,6 +372,10 @@ Compaction is how an agent keeps working when the context window fills up. The h
 **In Codex**, compaction starts automatically at 90% of the window, or when you type `/compact`. With OpenAI models, the summary is made on OpenAI's servers and comes back as one [encrypted item](https://developers.openai.com/api/docs/guides/compaction) that carries forward the key state and reasoning in a form you can't read.
 
 Codex keeps your recent messages (up to 64,000 tokens) and drops the assistant replies, tool calls and tool outputs, whose content survives only inside that encrypted item. It then adds the instructions, AGENTS.md and environment again.
+
+You can move the automatic point earlier. In Claude Code, `/autocompact` or the [`autoCompactWindow`](https://code.claude.com/docs/en/model-config#set-the-auto-compact-window) setting sets how full the context gets before it compacts. In Codex, the setting is `model_auto_compact_token_limit` in `config.toml`.
+
+I compact Claude Code at 350,000 tokens, not 967,000. The extra room isn't worth it to me: a longer context reads less reliably ([context rot](#what-is-a-context-window)), and every request carries the whole history. Even read from cache, a request at 900,000 tokens costs three times one at 300,000: $0.18 against $0.06 at Opus 5.5's API prices.
 
 Compaction is a request too, and it reads the whole history. In my trials for this article, a Codex compaction request read 30,658 tokens, and a Claude Code compaction read about 55,000. On a long session that request is large.
 
@@ -430,9 +434,13 @@ When an agent "forgets", one of four things usually happened:
 ## What are subagents?
 A subagent is a separate agent with its own context window. The main agent hands it a side task, such as searching a large codebase, and gets back only a summary, so the search results never fill the main conversation.
 
-**Claude Code** starts subagents with its `Agent` tool. It ships with Explore (fast, read-only search), Plan (research during plan mode) and general-purpose agents, and you can define your own in Markdown files. Subagents run in the background by default. A "fork" is a subagent that inherits the whole conversation so far and shares its cache.
+**Claude Code** starts subagents with its `Agent` tool. It ships with Explore (fast, read-only search), Plan (research during plan mode) and general-purpose agents, and you can define your own in Markdown files. Subagents run in the background by default.
 
 **Codex** runs each subagent as its own thread, addressed by a path such as `/root/<task_name>`, using tools such as `spawn_agent` and `wait_agent`. Up to four run at once by default. Current Codex releases only start subagents when you, AGENTS.md or a skill ask for it, except at the highest ("Ultra") reasoning effort.
+
+A subagent starts either fresh or as a fork. A fresh subagent sees only the brief it is given. A fork starts with a copy of the whole conversation, which helps when the task needs that background; in Claude Code, a fork's first request reads the parent's cache, so it costs less than briefing a fresh agent on the same ground.
+
+Claude Code starts subagents fresh, but Claude can choose a fork, and you can start one with `/subtask`. Codex's `spawn_agent` does the opposite: it [copies the parent's full history by default](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs), and `fork_turns: "none"` starts the subagent with only its brief. In my six-week client thread, the lead agent started about 4 in 10 of its subagents fresh. Either way, only the final report comes back to the main conversation.
 
 The trade-off is cost. A subagent keeps your main context clean, but it makes its own model requests with its own instructions. In my trials, one Claude Code subagent's first request was about 30,000 tokens on its own, and in Codex too, [subagent workflows use more tokens](https://learn.chatgpt.com/docs/agent-configuration/subagents) than comparable single-agent runs.
 
@@ -570,6 +578,10 @@ A hook is your own script that the harness runs at a fixed point in the loop, fo
 Instructions are not deterministic. The model usually follows CLAUDE.md, AGENTS.md or a skill, but it can miss a rule in a long context or lose it in compaction. In Anthropic's [words](https://code.claude.com/docs/en/features-overview): "An instruction like 'never edit `.env`' in CLAUDE.md or a skill is a request, not a guarantee. A `PreToolUse` hook that blocks the edit is enforcement."
 
 So use instructions for guidance and hooks for rules that must hold: block edits to secrets, run the formatter after every edit, run the tests before the agent says it is done. The trade-offs: a hook sees only the event, not your intent, and a slow hook slows every action it is attached to.
+
+A hook guards only while it runs. By default, Claude Code treats a hook that cannot start as a non-blocking error and lets the action go ahead. In one of my client trials, Node dropped off the PATH, the guard hook failed with "Executable not found in $PATH", and the trial ran on without it. Set [`"onFailure": "block"`](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails) on any hook that enforces a rule (Claude Code 2.1.295 and later).
+
+Test the hook in every tool your team uses, too. The same guard ran in several IDE agents. In VS Code, its "ask" answer brought up a prompt; IntelliJ's agent ignored the ask and ran the command, so in IntelliJ my guard now blocks instead of asking.
 
 Hooks cost no context unless they return output for the model. Claude Code supports events such as `SessionStart`, `PreToolUse`, `PostToolUse` and `Stop`. Codex supports a similar set, and in code mode its hook decisions also apply to the tool calls inside an `exec` script.
 
@@ -766,11 +778,11 @@ When an agent surprises you, look at the loop: what the harness sent in the requ
 
 **Effort:** a setting for how much the model thinks before replying. Higher effort means more reasoning tokens.
 
-**Fork:** a Claude Code subagent that starts with the whole conversation so far instead of a fresh context.
+**Fork:** a subagent that starts with a copy of the whole conversation so far instead of a fresh context. Codex subagents fork by default; Claude Code's start fresh unless Claude or you choose a fork.
 
 **Harness:** the program around the model that builds requests, runs tools and manages context. Claude Code and Codex are harnesses.
 
-**Hook:** your script that the harness runs at a fixed point in the loop, every time: a deterministic guardrail.
+**Hook:** your script that the harness runs at a fixed point in the loop, every time: a deterministic guardrail, as long as the hook can start.
 
 **Input tokens:** everything sent to the model in a request.
 
@@ -912,4 +924,6 @@ The `changelog-entry` skill was 63 lines (2,441 characters) and had identical te
 
 **Code mode research and practice:** Wang et al., [Executable Code Actions Elicit Better LLM Agents (CodeAct)](https://arxiv.org/abs/2402.01030) · Hugging Face, [smolagents](https://huggingface.co/blog/smolagents) · Cloudflare, [Code Mode](https://blog.cloudflare.com/code-mode/)
 
-**Changelog:** 10 November 2026, first version. 15 November 2026: written in the first person; reasoning summaries, post-training, tokenizers and the history of code mode added; the agent loop shown in TypeScript; a compaction example from a client project added; measurement details moved to the method section.
+**Hooks, auto-compaction and forks** (read 15 November 2026): [Claude Code hooks](https://code.claude.com/docs/en/hooks) · [Claude Code settings reference](https://code.claude.com/docs/en/settings-reference) · [Codex subagent tool definitions](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs)
+
+**Changelog:** 10 November 2026, first version. 15 November 2026: written in the first person; reasoning summaries, post-training, tokenizers and the history of code mode added; the agent loop shown in TypeScript; a compaction example from a client project added; measurement details moved to the method section; hook failures, the auto-compact setting and forks added.
