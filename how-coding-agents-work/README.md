@@ -2,7 +2,7 @@
 
 *What happens when you press Enter: the model, the harness, the loop, and every term in between, measured in both tools.*
 
-By Vishnumohan R K · 14 November 2026 · 44 min read
+By Vishnumohan R K · 14 November 2026 · 49 min read
 
 ![How Coding Agents Work: inside Claude Code and Codex. The model only writes text; the harness does the work. The model asks the harness for a tool and gets the result back, and the harness reads, edits and runs commands on your machine.](assets/og-image.png)
 
@@ -10,7 +10,7 @@ A coding agent such as Claude Code or Codex is a language model inside a harness
 
 Claude Code is Anthropic's coding agent and runs Claude models. Codex is OpenAI's and runs GPT models. Both work the same way underneath.
 
-We gave both agents the same prompt in the same small repository: two tests fail, find the root cause and fix it. Claude Code made 4 requests to its model to finish the job, and Codex made 6. Before either agent had opened a single file, its first request already held 42,583 tokens (Claude Code) and 16,637 tokens (Codex). About half of Claude Code's came from features of our account that your setup may not have.
+I gave both agents the same prompt in the same small repository: two tests fail, find the root cause and fix it. Claude Code made 4 requests to its model to finish the job, and Codex made 6. Before either agent had opened a single file, its first request already held 42,583 tokens (Claude Code) and 16,637 tokens (Codex). About half of Claude Code's came from features of my account that your setup may not have.
 
 Those numbers come from the loop that every coding agent runs. That loop explains much of what you notice in daily use: why the context window fills up, why the agent forgets a rule after compaction, and why every MCP server or skill you add costs tokens on every request. This guide takes Claude Code and Codex apart to show how coding agents work, one term at a time.
 
@@ -18,11 +18,11 @@ Those numbers come from the loop that every coding agent runs. That loop explain
 
 - The model only reads text and writes text. It cannot open a file or run a command.
 - The harness (Claude Code or Codex) runs a loop: send everything to the model, run the tools it asks for, send the results back, repeat.
-- One prompt becomes several model requests, and each one carries the whole conversation. We measured 4 requests in Claude Code and 6 in Codex for the same bug fix.
-- Before the agent reads a single file, its first request already carried 16,000 to 43,000 tokens in our setups, mostly instructions and tool definitions.
+- One prompt becomes several model requests, and each one carries the whole conversation. I measured 4 requests in Claude Code and 6 in Codex for the same bug fix.
+- Before the agent reads a single file, its first request already carried 16,000 to 43,000 tokens in my setups, mostly instructions and tool definitions.
 - Everything else in this guide (MCP, skills, subagents, compaction, memory) is about what goes into those requests, and when.
 
-> **Tested with** Claude Code 2.1.321 (Claude Opus 5.5) and Codex CLI 0.167.0 (GPT-6.1 Sol) on 10 November 2026. See [how we measured](#how-we-measured).
+> **Tested with** Claude Code 2.1.321 (Claude Opus 5.5) and Codex CLI 0.167.0 (GPT-6.1 Sol) on 10 November 2026. See [how I measured](#how-i-measured).
 
 This guide is long on purpose. Each section answers one question and stands alone. For the big picture, read up to [What does each request carry?](#what-does-each-request-carry); for any term, jump to the [glossary](#glossary).
 
@@ -36,7 +36,7 @@ This guide is long on purpose. Each section answers one question and stands alon
 - Extending the agent: [MCP](#what-is-mcp-and-an-mcp-server) · [Tool search](#what-is-tool-search-deferred-tools) · [Skills](#what-are-skills) · [Hooks and plugins](#what-are-hooks-and-plugins) · [CLI or MCP?](#cli-or-mcp-using-the-tools-already-on-your-machine) · [Which extension does what?](#skills-vs-mcp-vs-hooks-vs-subagents-vs-plugins-which-does-what)
 - Safety and surfaces: [Permissions and the sandbox](#permissions-approvals-and-the-sandbox) · [Where they run](#where-they-run-cli-ide-desktop-app-web-and-sdk)
 - Putting it together: [Claude Code vs Codex under the hood](#how-claude-code-and-codex-differ-under-the-hood) · [What this means for cost](#what-this-means-for-cost)
-- Reference: [Glossary](#glossary) · [FAQ](#frequently-asked-questions) · [How we measured](#how-we-measured) · [Sources](#sources)
+- Reference: [Glossary](#glossary) · [FAQ](#frequently-asked-questions) · [How I measured](#how-i-measured) · [Sources](#sources)
 
 ---
 
@@ -47,9 +47,9 @@ A coding agent is an AI tool that reads your code, runs commands and edits files
 
 Each word in that sentence maps to a part of Claude Code and Codex. The LLM is the model. The tools are actions such as reading a file, editing code or running the tests. The loop is the program that keeps calling the model, and the goal is your prompt.
 
-A chat assistant answers with text, and you copy its code into your editor yourself. A coding agent does that work in your project. From Anthropic's [glossary](https://code.claude.com/docs/en/glossary): "Claude Code is agentic because it has tools that let it act, not just advise."
+A chat assistant answers with text, and you copy its code into your editor yourself. A coding agent does that work in your project: it has [tools](https://code.claude.com/docs/en/glossary) that let it act, not just advise.
 
-Two names cause confusion early. Claude is Anthropic's family of models, and Claude Code is the agent that uses them. In this guide, Codex means OpenAI's current coding agent (the CLI, the IDE extension, the Codex mode of the ChatGPT desktop app and Codex Cloud), not the 2021 model that was also called Codex.
+One note on names: Codex here means OpenAI's coding agent in all its apps (the CLI, the IDE extension, the Codex mode of the ChatGPT desktop app and Codex Cloud), not the 2021 model of the same name.
 
 You will also meet the phrase "agentic coding". It describes this way of working: the agent reads files, runs commands and makes changes while you watch, redirect it or step away.
 
@@ -58,33 +58,39 @@ The model is a large language model (LLM). It reads text (and images, such as a 
 
 A language model reads a sequence of tokens (pieces of text, explained below) and predicts the next one. The software appends that token and asks again, one token at a time, until the model signals that it has finished. Everything an agent produces, from a sentence to a tool call, is the model writing tokens this way.
 
-Pretraining on large amounts of text teaches the prediction. Later training teaches the model to follow instructions, call tools and write code that passes tests. That later training is why current models make capable agents, and also why they reply in a predictable structure that a program can act on.
+Pretraining on large amounts of text teaches the prediction. Post-training then turns the model into an assistant: fine-tuning on examples, and reinforcement learning, in which the model attempts tasks such as fixing a bug and is rewarded when the result is good, for example when the tests pass.
 
-The model knows what was in its training data, up to a cutoff date. Current Claude models list June 2026, and GPT-6.1 Sol lists 30 April 2026. A library released after that date is unknown to the model until the agent reads its documentation or its installed source with a tool.
+OpenAI says it [trained its first Codex model this way](https://openai.com/index/introducing-codex/), on real-world coding tasks. Post-training is why current models make capable agents, and why they reply in a predictable structure that a program can act on.
 
-**The model keeps no memory between requests.** Its weights do not change while you work, and nothing you type teaches it. Anything an agent seems to remember is text that the harness saved and sends again. This one fact explains most of this guide: why every request is large, why the context fills up and why instruction files exist.
+The model knows what was in its training data, up to a cutoff date: June 2026 for current Claude models, and 30 April 2026 for GPT-6.1 Sol. A library released after that date is unknown to the model until the agent reads its documentation or its installed source with a tool.
 
-When Claude Code "reads a file", the model wrote a short structured request, Claude Code opened the file, and the contents went into the next request. Anthropic's [tool-use documentation](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works) states: "The model never runs anything on its own."
+**The model keeps no memory between requests.** Its weights do not change while you work, and nothing you type teaches it. Anything an agent seems to remember is text that the harness saved and sends again. This one fact explains most of this guide: why every request is large, why the context fills up and why files like CLAUDE.md and AGENTS.md exist.
 
-Current models also think before they answer. These reasoning (or thinking) tokens are billed as output tokens and are mostly hidden from you. Claude Code receives thinking blocks with an opaque signature and usually no readable text, and Codex receives encrypted reasoning items. Both harnesses keep them in the conversation so the model can continue its line of reasoning.
+When Claude Code "reads a file", the model wrote a short structured request, Claude Code opened the file, and the contents went into the next request. The model [never runs anything](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works) itself.
+
+Current models also reason before they answer. These reasoning (or thinking) tokens are billed as output tokens, but you never see the raw reasoning. At most you see a [summary](https://platform.claude.com/docs/en/build-with-claude/thinking) of it, and whether you see even that depends on a setting.
+
+Claude Code collapses thinking by default. Ctrl+O expands it, and it holds readable text only when `showThinkingSummaries` is on. In Codex, `model_reasoning_summary` sets how much you see, and in my CLI trials with GPT-6.1 Sol no summaries came back. Either way, the full reasoning travels encrypted with the conversation, so the model can continue its line of thought on the next request.
 
 ### What is a token?
 A token is a piece of text, often a word or part of a word, that the model reads and writes. Models count, limit and bill everything in tokens: the size of a request, the size of the context window and the price.
 
-![Three examples split into tokens: a 44-character English sentence becomes 9 tokens, a 27-character line of Python becomes 10, and a 41-character JSON tool call becomes 14. Many tokens start with the space before a word.](assets/fig1-tokens.svg)
+![Three examples split into tokens: a 44-character English sentence becomes 9 tokens, a 28-character line of TypeScript becomes 13, and a 41-character JSON tool call becomes 14. Many tokens start with the space before a word.](assets/fig1-tokens.svg)
 
 *A model reads and writes tokens, not words. Dense code and JSON split into more tokens per character than plain English.*
 
-OpenAI's rule of thumb is about 4 characters of English per token, and our counts with `o200k_base`, the tokenizer OpenAI publishes for its GPT-4o to GPT-5 models, came out at 4.4 to 4.9 for two plain sentences.
+OpenAI's rule of thumb is about 4 characters of English per token, and my counts with `o200k_base`, the tokenizer OpenAI publishes for its GPT-4o to GPT-5 models, came out at 4.4 to 4.9 for two plain sentences. OpenAI hasn't published GPT-6's tokenizer, so take that ratio as a guide for Codex, not an exact figure.
 
-Anthropic says earlier Claude models averaged about 3.5 English characters per token, and current models produce about 30% more tokens for the same text, which works out to roughly 2.7. So 100,000 tokens in Claude Code and 100,000 tokens in Codex are not the same amount of text.
+Earlier Claude models averaged about 3.5 English characters per token. Claude 4.7 and later use a [newer tokenizer](https://platform.claude.com/docs/en/build-with-claude/token-counting) that produces about 30% more tokens for the same text, which works out to roughly 2.7. So 100,000 tokens in Claude Code and 100,000 tokens in Codex are not the same amount of text.
 
-Code and JSON split into smaller pieces. A dense line of Python came out at 2.7 characters per token and a short JSON snippet at 2.9. Whole source files average closer to 4, because indentation and comments split cheaply. JSON matters most here, because tool definitions and tool calls are JSON, and so are many tool results, such as MCP responses.
+Code and JSON split into smaller pieces. A dense line of TypeScript came out at 2.2 characters per token and a short JSON snippet at 2.9. Whole source files average closer to 4, because indentation and comments split cheaply. JSON matters most here, because tool definitions and tool calls are JSON, and so are many tool results, such as MCP responses.
+
+Each model family splits text with its own tokenizer, trained on its own data. OpenAI publishes the tokenizers of its earlier GPT models, Anthropic offers a token-counting endpoint instead of a public tokenizer, and Gemini and open models such as Llama have their own. A token count from one family doesn't carry over to another.
 
 ## What is a harness? Model vs harness
-A harness is the program around the model that turns its text into actions. Claude Code and Codex are harnesses. In Anthropic's [glossary](https://code.claude.com/docs/en/glossary): "Claude Code is the harness; Claude is the model inside it."
+A harness is the program around the model that turns its text into actions. Claude Code and Codex are harnesses: Claude Code is the harness, and [Claude is the model inside it](https://code.claude.com/docs/en/glossary).
 
-OpenAI describes the same split. Every Codex app, from the terminal to the desktop app, runs one Codex harness: the agent loop and its logic, which live in a component OpenAI calls Codex core. So a coding agent is a model plus a harness, and the harness is the part you install.
+Codex has the same split. Every Codex app, from the terminal to the desktop app, runs [one harness](https://openai.com/index/unlocking-the-codex-harness/): the agent loop and its logic, in a component called Codex core. So a coding agent is a model plus a harness, and the harness is the part you install.
 
 The harness does everything the model cannot:
 
@@ -100,11 +106,11 @@ The harness does everything the model cannot:
 
 *The model only reads and writes text. The harness turns its tool calls into real actions on your machine.*
 
-[Anthropic's engineering team](https://www.anthropic.com/engineering/managed-agents) splits a hosted agent into three parts: "a session (the append-only log of everything that happened), a harness (the loop that calls Claude and routes Claude's tool calls to the relevant infrastructure), and a sandbox (an execution environment where Claude can run code and edit files)." Claude Code and Codex have all three.
+A hosted agent has [three parts](https://www.anthropic.com/engineering/managed-agents): a session, the append-only log of everything that happened; a harness, the loop that calls the model and routes its tool calls; and a sandbox, where code runs and files change. Claude Code and Codex have all three.
 
 In both, the session is the conversation file saved on disk, the harness is the program you run, and the execution environment is your machine or a cloud machine. The operating-system sandbox described under [permissions and the sandbox](#permissions-approvals-and-the-sandbox) is narrower: a boundary around commands, on by default in Codex and off by default in Claude Code.
 
-The loop itself is small. The agent class of the [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) research project is about 100 lines of Python, with a single tool, the shell, and its authors report over 74% on the SWE-bench Verified benchmark. Thorsten Ball's [tutorial](https://ampcode.com/how-to-build-an-agent) builds a working code-editing agent in a few hundred lines of Go.
+The loop itself is small: a working coding agent [fits in about 100 lines](https://github.com/SWE-agent/mini-swe-agent) of code, with a single tool, the shell.
 
 Claude Code and Codex are large products because of everything around the loop: permissions and the sandbox, context management, instruction files, MCP, skills, subagents and several apps. Most of this guide is about those parts.
 
@@ -131,30 +137,32 @@ Step by step:
 
 *One turn of a coding agent. The harness keeps calling the model until a reply contains no tool call.*
 
-OpenAI's Michael Bolin [describes the Codex loop](https://openai.com/index/unrolling-the-codex-agent-loop/) the same way: the harness runs each tool call and appends its output, and the process repeats "until the model stops emitting tool calls". Anthropic describes Claude Code's loop for users as three phases, gather context, take action and verify results, which run on top of this mechanical loop.
+Codex runs [the same loop](https://openai.com/index/unrolling-the-codex-agent-loop/): it runs each tool call, appends the output and repeats until the model stops asking for tools. For users, Claude Code frames the loop as [three phases](https://code.claude.com/docs/en/how-claude-code-works): gather context, take action and verify results. Those phases describe what the model does; the mechanical loop underneath is the same.
 
 You are part of the loop too. You can interrupt at any point and steer the agent with a new message, and the harness stops to ask you when an action needs your approval.
 
-For engineers, here is the loop as simplified Python. Real harnesses add streaming, parallel tools, compaction, retries and much more.
+For engineers, here is the loop as simplified TypeScript. Real harnesses add streaming, parallel tools, compaction, retries and much more.
 
-```python
-messages = [system_prompt, instruction_files, user_prompt]
+```ts
+const messages: Message[] = [systemPrompt, instructionFiles, userPrompt];
 
-while True:
-    reply = model.generate(tools=TOOL_DEFINITIONS, messages=messages)
-    messages.append(reply)
+while (true) {
+  const reply = await model.generate({ tools: TOOL_DEFINITIONS, messages });
+  messages.push(reply);
 
-    tool_calls = [part for part in reply.content if part.type == "tool_call"]
-    if not tool_calls:
-        show(reply.text)      # final answer: the turn ends
-        break
+  const toolCalls = reply.content.filter((part) => part.type === "tool_call");
+  if (toolCalls.length === 0) {
+    show(reply.text); // final answer: the turn ends
+    break;
+  }
 
-    for call in tool_calls:
-        if allowed(call):     # permission mode, rules, or ask the user
-            result = run_tool(call.name, call.input)
-        else:
-            result = "The user denied this action."
-        messages.append(tool_result(call.id, result))
+  for (const call of toolCalls) {
+    const result = (await isAllowed(call)) // permission mode, rules, or ask you
+      ? await runTool(call.name, call.input)
+      : "The user denied this action.";
+    messages.push(toolResult(call.id, result));
+  }
+}
 ```
 
 Notice that `messages` only grows. Every pass sends the whole list again, because the model keeps no memory of the previous request.
@@ -164,7 +172,7 @@ A turn is everything from your prompt to the agent's final answer. A request is 
 
 A naming trap: Anthropic's Agent SDK calls each pass through the loop a "turn", and its `max_turns` setting counts model requests. This guide uses "turn" as the Claude Code and Codex apps do, for your prompt and the final answer.
 
-We measured one turn in each tool with the same prompt and the same demo repository, a small Python library with two failing tests. Both agents fixed the bug.
+I measured one turn in each tool with the same prompt and the same demo repository, a small Python library with two failing tests. Both agents fixed the bug.
 
 | | Claude Code | Codex |
 |---|---|---|
@@ -187,13 +195,17 @@ When the model asks for several tools in one reply, as Claude Code did in its th
 
 These are single runs, so they show how the loop behaves, not which tool is faster. In an earlier Codex run, the same prompt took 4 requests.
 
+Real tasks run much longer. On a client project, one brief to an implementing agent in Claude Code became 836 requests and 857 tool calls over 3 hours 12 minutes, with five compactions along the way.
+
 ### Requests you never see
 Both harnesses also send small requests that do not appear in the conversation:
 
-- **Claude Code** sends a session-title request to Claude Haiku 5.5 (about 1,200 tokens), and through our logging proxy we also saw a start-up probe with `max_tokens: 1`.
+- **Claude Code** sends a session-title request to Claude Haiku 5.5 (about 1,200 tokens).
 - **Codex** sends a start-up "prewarm" request on the session's model, and a thread-title request to GPT-5.6 Luna (about 6,800 tokens).
 
 Compaction, covered below, is also a full request. Neither tool lists these requests one by one in its normal interface.
+
+Approval reviewers make requests too. Codex's auto-review agent runs as a separate session beside yours: in one of my browser-test runs, the tester made 313 requests and its auto-review agent made 672. Across my Codex sessions from 18 October to 15 November 2026, auto-review made 7,728 requests, against 7,487 by the models doing the work.
 
 ## What is tool calling?
 Tool calling is how a model asks the harness to do something. The harness describes each tool to the model, the model replies with a structured request naming a tool and its inputs, and the harness runs it and sends back the result.
@@ -216,7 +228,7 @@ A tool definition has three parts: a name, a description in plain English and an
 }
 ```
 
-The model reads that description like any other text. When it wants to run the tests, Claude Code receives a reply containing a `tool_use` block. This is the real block from our test run, trimmed:
+The model reads that description like any other text. When it wants to run the tests, Claude Code receives a reply containing a `tool_use` block. This is the real block from my test run, trimmed:
 
 ```json
 {
@@ -245,9 +257,9 @@ The model never ran anything. It wrote a request, and the harness did the work a
 
 ### Codex writes code to call its tools
 
-Codex takes a different approach in 2026, which OpenAI calls code mode. Every current model gets one main tool, `exec`, that accepts JavaScript. The model writes a short program, and inside it calls nested tools such as `exec_command` (the shell) and `apply_patch` (file edits).
+Codex takes a different approach, called code mode. Every current model gets one main tool, `exec`, that accepts JavaScript. The model writes a short program, and inside it calls nested tools such as `exec_command` (the shell) and `apply_patch` (file edits).
 
-Here is the real call from our test run in which Codex fixed the bug, trimmed. One request applied the patch, re-ran the tests and printed a summary of the diff:
+Here is the real call from my test run in which Codex fixed the bug, trimmed. One request applied the patch, re-ran the tests and printed a summary of the diff:
 
 ```json
 {
@@ -266,17 +278,19 @@ text(await tools.exec_command({cmd: "python3 -B -m unittest discover -s tests -v
 text(await tools.exec_command({cmd: "git diff --stat"}));
 ```
 
-The result comes back as a `custom_tool_call_output` with the same `call_id`. Every tool call in our Codex sessions was an `exec` call, and one of them read six files and ran `git status` at once. The model can chain several actions in one program.
+The result comes back matched by the same id, as in Claude Code. Every tool call in my Codex sessions was an `exec` call, and one of them read six files and ran `git status` at once. The model can chain several actions in one program.
 
-Codex's [configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference) still lists the code-mode feature switch as off by default. The model catalogue that Codex downloads sets every current model to code mode only, so that switch doesn't decide it, and every tool call we recorded went through `exec`.
+Code mode isn't a setting you choose in Codex: every current model uses it, and every tool call I recorded went through `exec`.
 
-Claude Code added an experimental, opt-in Code Mode in version 2.1.323, after our tests, in which Claude writes JavaScript to call its tools. Everything we measured in Claude Code used separate tools.
+Code mode isn't unique to Codex. Research in 2024 showed that agents [do better](https://arxiv.org/abs/2402.01030) when they act by writing code, and Hugging Face's [smolagents](https://huggingface.co/blog/smolagents) built agents around the idea. In 2025, [Cloudflare](https://blog.cloudflare.com/code-mode/) and [Anthropic](https://www.anthropic.com/engineering/code-execution-with-mcp) proposed giving the model its tools as a code API; in one of Anthropic's examples, that cut a task from 150,000 tokens to 2,000.
+
+Codex made code mode the default for its models in July 2026. Claude Code added an experimental, opt-in [Code Mode](https://code.claude.com/docs/en/code-mode) in version 2.1.323, after my tests, in which Claude writes JavaScript to call its tools. Everything I measured in Claude Code used separate tools.
 
 ### The built-in tools
 
 | | Claude Code | Codex |
 |---|---|---|
-| How tools are packaged | Separate JSON tools: 16 sent on our first request | One `exec` tool running JavaScript with 13 nested tools, plus about 10 small tools |
+| How tools are packaged | Separate JSON tools: 16 sent on my first request | One `exec` tool running JavaScript with 13 nested tools, plus about 10 small tools |
 | Shell | `Bash` | `exec_command` (nested) |
 | Edit files | `Edit`, `Write` | `apply_patch` (nested) |
 | Read files | `Read`, or the shell | the shell |
@@ -285,12 +299,14 @@ Claude Code added an experimental, opt-in Code Mode in version 2.1.323, after ou
 | Ask you a question | `AskUserQuestion` | `request_user_input` |
 | Load more tools | `ToolSearch` | Filters `ALL_TOOLS` inside `exec` |
 
-Claude Code documents about 45 built-in tools, but only a core set is sent with every request. The rest are named in a list and loaded when needed (see [tool search](#what-is-tool-search-deferred-tools)). On macOS and Linux, Claude Code no longer sends separate `Glob` and `Grep` tools; it searches through the shell.
+Claude Code has about 45 built-in tools, but only a core set is sent with every request. The rest are named in a list and loaded when needed (see [tool search](#what-is-tool-search-deferred-tools)). On macOS and Linux, Claude Code no longer sends separate `Glob` and `Grep` tools; it searches through the shell.
 
 A few tools run on the provider's servers instead of your machine, such as web search in some setups. The model calls them the same way, and the result arrives without the harness running anything locally.
 
 ## What does each request carry?
 Every request carries the full briefing: tool definitions, the system instructions, your instruction files, details about your environment, the conversation so far and your latest message. The model keeps nothing between requests, so every request must give it everything it needs.
+
+A request is a list of messages, each with a role. The app's own instructions travel as system or developer messages, what you type (and text the app adds on your behalf) as user messages, and the model's earlier replies as assistant messages.
 
 Claude Code and Codex put the same kinds of content in a different order:
 
@@ -299,16 +315,22 @@ Claude Code and Codex put the same kinds of content in a different order:
 | 1 | Tool definitions | Tool definitions |
 | 2 | System prompt | Base instructions |
 | 3 | First user message: CLAUDE.md or AGENTS.md, a git status snapshot, your prompt | Developer messages: skills list, sandbox and approval rules, subagent rules, deferred tool list |
-| 4 | A message after the prompt: environment, date, skills list, subagent types, MCP server instructions, deferred tool names | User messages: AGENTS.md, environment and date, then your prompt |
+| 4 | A user message after the prompt, added by Claude Code: environment, date, skills list, subagent types, MCP server instructions, deferred tool names | User messages: AGENTS.md, environment and date, then your prompt |
 | 5 | The conversation: replies, tool calls, tool results | The conversation: replies, tool calls, tool results |
 
 ![Two stacked bars on one scale. Claude Code's first request (42,583 tokens) is mostly tool definitions (24,803, of which 12,469 is one Artifact tool), then lists after the prompt (10,777) and the system prompt (4,332); Codex's (16,637 tokens) is mostly tool definitions (about 7,900) and base instructions (about 4,100).](assets/fig5-first-request.svg)
 
 *Before reading a single file, Claude Code's first request was 42,583 tokens and Codex's 16,637. Tool definitions are the largest part in both.*
 
-Some of that size depends on the account. Connected services, organisation skills and a browser extension added about 8,000 tokens on our Claude Code setup. Our closest-to-default run, started with `claude --safe-mode`, which also leaves out the project's CLAUDE.md and auto memory, began at 32,602. Even that run carried Artifact, a 12,469-token tool for publishing pages that comes with our plan; we could not tell whether other plans send it.
+What the first request holds depends on your setup, not only on the tool. Three layers add to it:
 
-Without the plugin skills on our account, Codex's first request would have been about 15,500 tokens, an estimate from character counts.
+- **Your account:** connectors, organisation skills and plugins, and app features such as a browser extension.
+- **Your machine:** your global settings and instruction file, and the skills, plugins, MCP servers and hooks you installed.
+- **The project:** its CLAUDE.md or AGENTS.md, its settings, MCP servers and skills.
+
+On my Claude Code account, connected services, organisation skills and a browser extension added about 8,000 tokens. My closest-to-default run, which also left out the project's CLAUDE.md and auto memory, began at 32,602. Even that run carried Artifact, a 12,469-token tool for publishing pages that comes with my plan.
+
+Without the plugin skills on my account, Codex's first request would have been about 15,500 tokens, an estimate from character counts.
 
 After the first request, the history grows with every tool result. That is why the conversation, not the fixed start, eventually fills the context window.
 
@@ -325,12 +347,12 @@ The context window is the most text a model can consider in one request, includi
 
 The sizes, as each tool uses them on 10 November 2026:
 
-- **Claude Code on Claude Opus 5.5:** a 1,000,000-token window, with up to 128,000 tokens of output per request. Automatic compaction starts at about 967,000 tokens.
-- **Codex on GPT-6.1 Sol:** a 500,000-token window by default, which `/status` shows as 475,000 usable. In our session it reported "98% left (22.4K used / 475K)", because its percentage leaves out a fixed 12,000-token baseline. Automatic compaction starts at 90%, about 450,000 tokens. OpenAI's API lists larger windows for its GPT-6 models; Codex uses its own default.
+- **Claude Code on Claude Opus 5.5:** a 1,000,000-token window, with up to 128,000 tokens of output per request. Automatic compaction starts at about 967,000 tokens by default.
+- **Codex on GPT-6.1 Sol:** a 500,000-token window by default, which `/status` shows as 475,000 usable. In my session it reported "98% left (22.4K used / 475K)", because its percentage leaves out a fixed 12,000-token baseline. Automatic compaction starts at 90%, about 450,000 tokens. GPT-6 models have larger windows in OpenAI's API; Codex uses its own default.
 
 What fills the window is mostly tool results: file contents, command output and search results. Both harnesses cap a single result. Claude Code saves shell output over about 30,000 characters to a file and shows the model the path and a preview; MCP results over 25,000 tokens also go to a file, and the model gets the path. Codex caps each command's output at 10,000 tokens by default.
 
-A bigger window is not automatically better. Anthropic's [context-window documentation](https://platform.claude.com/docs/en/build-with-claude/context-windows) says that "as token count grows, accuracy and recall degrade, a phenomenon known as *context rot*." [Chroma's 2025 study](https://www.trychroma.com/research/context-rot) of 18 models found that performance became less reliable as inputs grew, even on simple tasks. An older study, ["Lost in the Middle"](https://arxiv.org/abs/2307.03172), found that models used information at the start and end of a long input better than the middle.
+A bigger window is not automatically better. As the token count grows, accuracy and recall degrade, a problem known as [context rot](https://platform.claude.com/docs/en/build-with-claude/context-windows). [Chroma's 2025 study](https://www.trychroma.com/research/context-rot) of 18 models found that performance became less reliable as inputs grew, even on simple tasks. An older study, ["Lost in the Middle"](https://arxiv.org/abs/2307.03172), found that models used information at the start and end of a long input better than the middle.
 
 That is why agents compact old history, hand side tasks to subagents and load files only when they need them. The idea has a name, context engineering, which [Andrej Karpathy described](https://x.com/karpathy/status/1937902205765607626) as "the delicate art and science of filling the context window with just the right information for the next step."
 
@@ -341,7 +363,7 @@ Compaction is how an agent keeps working when the context window fills up. The h
 
 *Compaction replaces the conversation history with a summary. The fixed parts stay, and the agent gets room to keep working.*
 
-**In Claude Code**, compaction runs automatically near the limit (about 967,000 tokens on 1M-token models), or when you type `/compact`. You can add a focus, such as `/compact focus on the API changes`. After compaction, Claude Code puts back what it needs to continue:
+**In Claude Code**, compaction runs automatically near the limit (by default about 967,000 tokens on 1M-token models), or when you type `/compact`. You can add a focus, such as `/compact focus on the API changes`. After compaction, Claude Code puts back what it needs to continue:
 
 | Kept or restored after compaction | How |
 |---|---|
@@ -353,15 +375,25 @@ Compaction is how an agent keeps working when the context window fills up. The h
 | Skills used in the session | Re-attached, up to 5,000 tokens each and 25,000 in total |
 | Everything else in the conversation | Only what the summary kept |
 
-**In Codex**, compaction starts automatically at 90% of the window, or when you type `/compact`. With OpenAI models, the summary is made on OpenAI's servers and comes back as one encrypted item, which OpenAI's [compaction guide](https://developers.openai.com/api/docs/guides/compaction) describes as carrying forward "key prior state and reasoning" in a form that is "not intended to be human-interpretable".
+**In Codex**, compaction starts automatically at 90% of the window, or when you type `/compact`. With OpenAI models, the summary is made on OpenAI's servers and comes back as one [encrypted item](https://developers.openai.com/api/docs/guides/compaction) that carries forward the key state and reasoning in a form you can't read.
 
 Codex keeps your recent messages (up to 64,000 tokens) and drops the assistant replies, tool calls and tool outputs, whose content survives only inside that encrypted item. It then adds the instructions, AGENTS.md and environment again.
 
-Compaction is a request too, and it reads the whole history. In our trial a Codex compaction request read 30,658 tokens, and a Claude Code compaction read about 55,000. On a long session that request is large.
+You can move the automatic point earlier. In Claude Code, `/autocompact` or the [`autoCompactWindow`](https://code.claude.com/docs/en/model-config#set-the-auto-compact-window) setting sets how full the context gets before it compacts. In Codex, the setting is `model_auto_compact_token_limit` in `config.toml`.
 
-The restored files and lists use some of the freed space again. In our Claude Code session, the request after `/compact` was 47,400 tokens, down from 53,700, because the recent files, skills and tool lists came back with the summary.
+I compact Claude Code at 350,000 tokens, not 967,000. The extra room isn't worth it to me: a longer context reads less reliably ([context rot](#what-is-a-context-window)), and every request carries the whole history. Even read from cache, a request at 900,000 tokens costs three times one at 300,000: $0.18 against $0.06 at Opus 5.5's API prices.
+
+Compaction is a request too, and it reads the whole history. In my trials for this article, a Codex compaction request read 30,658 tokens, and a Claude Code compaction read about 55,000. On a long session that request is large.
+
+The restored files and lists use some of the freed space again. In my Claude Code session, the request after `/compact` was 47,400 tokens, down from 53,700, because the recent files, skills and tool lists came back with the summary.
 
 Details that the summary leaves out are gone. This explains one common kind of "why did it forget what we agreed?": the instruction lived only in the conversation, and compaction summarised it away.
+
+### From practice: 298 compactions in one thread
+
+On a client project, I brought a vibe-coded full-stack JavaScript app up to production grade: architecture and code-quality fixes, a proper repository structure and quality gates. One Codex thread ran the whole programme for six weeks, directing worker agents: 805 turns and about 41,200 model requests. It compacted 298 times, typically at about 226,000 tokens of its 258,400-token window, and came back at about 57,000.
+
+The work carried on through every compaction because the plan never lived only in the conversation. The goal, the current stage and the next action were in a `STATE.md` file, and AGENTS.md told the agent to re-read it and the worklog before continuing. `STATE.md` came up in over 400 of the thread's tool calls. Write down whatever has to survive compaction.
 
 `/clear` is different. It starts a new conversation with an empty history, keeping only what loads at start-up, such as your instruction files. Use `/clear` when the next task is unrelated, and `/compact` when you want to continue the same work with a shorter history.
 
@@ -370,27 +402,27 @@ Compaction also replaces the history the provider had cached, so the request aft
 ## Memory: what the agent remembers, and what it doesn't
 A coding agent has no memory of its own. "Memory" in these tools means text files that the harness reads from disk and puts into the request, plus the saved conversation you can resume.
 
-[Anthropic's engineers](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) describe the problem with an analogy: "Imagine a software project staffed by engineers working in shifts, where each new engineer arrives with no memory of what happened on the previous shift." Instruction files, memory files and saved sessions are the handover notes.
+Think of [a project staffed by engineers working in shifts](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), where each new engineer arrives with no memory of the previous shift. Instruction files, memory files and saved sessions are the handover notes.
 
 ### Instruction files: CLAUDE.md and AGENTS.md
 
-An instruction file is a Markdown file of project rules and context that the agent loads at the start of every session: how to run the tests, which conventions to follow, what not to touch.
+An instruction file (also called a context file) is a Markdown file of project rules and context that the agent loads at the start of every session: how to run the tests, which conventions to follow, what not to touch.
 
-**Claude Code** reads `CLAUDE.md` files from your working folder and every folder above it, plus your personal `~/.claude/CLAUDE.md`, and joins them. Files in subfolders load when the agent works on files there. A `CLAUDE.md` can import other files with `@path/to/file`. Anthropic suggests keeping each file under 200 lines, because longer files cost more context and are followed less reliably.
+**Claude Code** reads `CLAUDE.md` files from your working folder and every folder above it, plus your personal `~/.claude/CLAUDE.md`, and joins them. Files in subfolders load when the agent works on files there. A `CLAUDE.md` can import other files with `@path/to/file`. Keep each file under about 200 lines: longer files cost more context and are [followed less reliably](https://code.claude.com/docs/en/memory).
 
-**Codex** reads `AGENTS.md`: a global one in `~/.codex`, then one per folder from the repository root down to your working folder. Later files appear later in the request, so the file closest to your work wins a conflict. Codex stops adding files at 32 KiB and reads them once per session; in our trial, an edit made mid-session was not picked up.
+**Codex** reads `AGENTS.md`: a global one in `~/.codex`, then one per folder from the repository root down to your working folder. Later files appear later in the request, so the file closest to your work wins a conflict. Codex stops adding files at 32 KiB and reads them once per session; in my trials, an edit made mid-session was not picked up.
 
-Since version 2.1.277, Claude Code also reads `AGENTS.md` when there is no `CLAUDE.md` in the working folder or any folder above it. To use one file for both agents, keep `AGENTS.md` and add a one-line `CLAUDE.md` that imports it with `@AGENTS.md`, as our demo repository did. AGENTS.md is an open format, now looked after by the Linux Foundation's [Agentic AI Foundation](https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation).
+Since version 2.1.277, Claude Code also reads `AGENTS.md` when there is no `CLAUDE.md` in the working folder or any folder above it. To use one file for both agents, keep `AGENTS.md` and add a one-line `CLAUDE.md` that imports it with `@AGENTS.md`, as my demo repository did. AGENTS.md is an open format, now looked after by the Linux Foundation's [Agentic AI Foundation](https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation).
 
 Claude Code puts the instruction files in the first user message, wrapped in a "system reminder", not in the system prompt. Codex puts AGENTS.md in a user message before your prompt.
 
-Anthropic's [memory documentation](https://code.claude.com/docs/en/memory): "Claude treats them as context, not enforced configuration." A rule in an instruction file is a strong request. For a rule that must never be broken, use a hook or a permission rule (see [hooks](#what-are-hooks-and-plugins)).
+Instruction files are [context, not enforced configuration](https://code.claude.com/docs/en/memory). A rule in one is a strong request. For a rule that must never be broken, use a hook or a permission rule (see [hooks](#what-are-hooks-and-plugins)).
 
 ### Notes the agent writes for itself
 
 **Claude Code's auto memory** is on by default. Claude writes short notes about your corrections and preferences into a memory folder for the project. An index file, `MEMORY.md`, loads at the start of every session (the first 200 lines or 25 KB), and the agent reads the individual notes when they look relevant.
 
-**Codex memories** exist but are off by default. When you turn them on, Codex extracts useful context from earlier chats in the background. A summary of up to 2,500 tokens goes into the instructions, and the agent searches the memory files when it needs more. OpenAI's [advice](https://learn.chatgpt.com/docs/customization/memories): keep required team guidance in AGENTS.md and treat memories as a recall layer.
+**Codex memories** exist but are off by default. When you turn them on, Codex extracts useful context from earlier chats in the background. A summary of up to 2,500 tokens goes into the instructions, and the agent searches the memory files when it needs more. Keep required team guidance in AGENTS.md and treat memories as a [recall layer](https://learn.chatgpt.com/docs/customization/memories).
 
 ### Saved sessions
 
@@ -408,13 +440,29 @@ When an agent "forgets", one of four things usually happened:
 ## What are subagents?
 A subagent is a separate agent with its own context window. The main agent hands it a side task, such as searching a large codebase, and gets back only a summary, so the search results never fill the main conversation.
 
-**Claude Code** starts subagents with its `Agent` tool. It ships with Explore (fast, read-only search), Plan (research during plan mode) and general-purpose agents, and you can define your own in Markdown files. Subagents run in the background by default. A "fork" is a subagent that inherits the whole conversation so far and shares its cache.
+**Claude Code** starts subagents with its `Agent` tool. It ships with Explore (fast, read-only search), Plan (research during plan mode) and general-purpose agents, and you can define your own in Markdown files. Subagents run in the background by default.
 
 **Codex** runs each subagent as its own thread, addressed by a path such as `/root/<task_name>`, using tools such as `spawn_agent` and `wait_agent`. Up to four run at once by default. Current Codex releases only start subagents when you, AGENTS.md or a skill ask for it, except at the highest ("Ultra") reasoning effort.
 
-The trade-off is cost. A subagent keeps your main context clean, but it makes its own model requests with its own instructions. In our trial, one Claude Code subagent's first request was about 30,000 tokens on its own. Codex's [subagent documentation](https://learn.chatgpt.com/docs/agent-configuration/subagents) warns that "subagent workflows consume more tokens than comparable single-agent runs."
+A subagent starts either fresh or as a fork. A fresh subagent sees only the brief it is given. A fork starts with a copy of the whole conversation, which helps when the task needs that background; in Claude Code, a fork's first request reads the parent's cache, so it costs less than briefing a fresh agent on the same ground.
+
+Claude Code starts subagents fresh, but Claude can choose a fork, and you can start one with `/subtask`. Codex's `spawn_agent` does the opposite: it [copies the parent's full history by default](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs), and `fork_turns: "none"` starts the subagent with only its brief. In my six-week client thread, the lead agent started about 4 in 10 of its subagents fresh. Either way, only the final report comes back to the main conversation.
+
+The trade-off is cost. A subagent keeps your main context clean, but it makes its own model requests with its own instructions. In my trials, one Claude Code subagent's first request was about 30,000 tokens on its own, and in Codex too, [subagent workflows use more tokens](https://learn.chatgpt.com/docs/agent-configuration/subagents) than comparable single-agent runs.
 
 Both tools also offer ways to coordinate many agents: Claude Code has agent teams (experimental) and dynamic workflows, and Codex agents can message each other and take follow-up tasks. The [glossary](#glossary) defines them.
+
+### From practice: 116 agents on two vendors' models
+
+On a client's frontend refactor, my lead agent in Claude Code handed 116 tasks to separate agents over two weeks: 64 on Claude Opus 5.5, 50 on GPT-6 Astra and 2 on GPT-6.1 Sol. Most were reviews. The agent that wrote the code never reviewed it: each reviewer started as its own thread, without the writer's context.
+
+Reviewers on both vendors' models caught the writer overstating its own work: "15 typed hooks, but the clean-up added 13", and "12 commits, not 14".
+
+A reviewer finds what its brief asks for, though. My early briefs asked for any difference from the old code, never who would hit it or how often. Rare cases came back as regressions, and, in the lead agent's words, "fixes then needed their own fixes, five times over." It now sizes every finding before it recommends a fix.
+
+In the final review round, six reviewers read the code and tests, and their findings made a 19-item fix list. A seventh only used the old and new builds in a browser. It found the two regressions the others had missed: after an outage, issue counts stayed empty until a reload, and Retry reset colours to their defaults.
+
+Delegation keeps the reports short, not the lead's context. In the last two days, 45 agents sent back reports with a median of about 2,600 characters, but the lead ran 1,632 shell commands of its own to check their work and compacted 14 times.
 
 ---
 
@@ -435,28 +483,28 @@ The [official analogy](https://modelcontextprotocol.io/docs/getting-started/intr
 
 - **Connected tools cost tokens.** Their definitions travel in requests, unless tool search defers them (next section).
 - **The harness makes the call, not the model.** The model only asks; Claude Code or Codex sends the request to the server.
-- **A server is running code with your credentials.** Claude Code's sandbox covers shell commands only, and OpenAI's Michael Bolin [wrote in January 2026](https://openai.com/index/unrolling-the-codex-agent-loop/) that MCP tools "are not sandboxed by Codex and are responsible for enforcing their own guardrails." Codex 0.163.0 added a sandbox launcher that local MCP servers can use; we did not test it. Add servers you trust.
+- **A server is running code with your credentials.** Claude Code's sandbox covers shell commands only, and MCP tools [run outside Codex's sandbox](https://openai.com/index/unrolling-the-codex-agent-loop/), responsible for their own guardrails. Codex 0.163.0 added a sandbox launcher that local MCP servers can use; I did not test it. Add servers you trust.
 
-An MCP server costs tokens twice: its tool definitions, and the results its tools return. A result enters the context once and then travels with the history in every later request, so one large result can cost more than all the definitions.
+Every tool costs tokens in two places: its definition, in every request while it is loaded, and each result it returns, which stays in the history for the rest of the session. MCP makes both grow fast: one server can add dozens of tools, and one large result can cost more than all their definitions.
 
-We connected GitHub's official MCP server to both tools, read-only and with its default toolsets. It offered 28 tools, and 27 of them reached the model (the 28th, `ui_get`, serves MCP Apps and was never sent). With default settings, it made the first request 974 tokens larger in Claude Code and 20 tokens larger in Codex. The next section explains why so little.
+I connected GitHub's official MCP server to both tools, read-only and with its default toolsets. It offered 28 tools, and 27 of them reached the model (the 28th, `ui_get`, serves MCP Apps and was never sent). With default settings, it made the first request 974 tokens larger in Claude Code and 20 tokens larger in Codex. The next section explains why so little.
 
 The results cost more. One `issue_read` call, which fetches a single issue, returned about 1,900 characters of JSON in Claude Code and 2,700 in Codex (for different issues). That added about 750 and 814 tokens to the next request (not counting the model's own call), and to every request after it in the session.
 
 ## What is tool search (deferred tools)?
 Tool search lets an agent keep many tools available without sending all their definitions in every request. The harness sends only the tool names, and the model loads a full definition when it decides to use that tool.
 
-The problem it solves is real. [Anthropic measured](https://www.anthropic.com/engineering/advanced-tool-use) five common MCP servers at "58 tools consuming approximately 55K tokens before the conversation even starts", with GitHub's server alone at about 26,000. Anthropic also found that models choose tools less accurately once they have more than 30 to 50 to pick from.
+Without it, definitions add up fast: five common MCP servers come to [58 tools and about 55,000 tokens](https://www.anthropic.com/engineering/advanced-tool-use) before the conversation starts, with GitHub's server alone at about 26,000. Models also choose tools less accurately once they have more than 30 to 50 to pick from.
 
 **In Claude Code**, tool search is on by default. MCP tools and the less-used built-in tools are listed by name in the request under a line that begins "The following deferred tools are now available via ToolSearch". When the model needs one, it calls `ToolSearch`, and Claude Code adds the full definition to the next request.
 
-On our Claude Code setup, the first request listed 91 deferred tool names, which cost 1,706 tokens. The closest-to-default run listed 21 names for 230 tokens. You can turn tool search off with `ENABLE_TOOL_SEARCH=false`, or mark a server you use constantly with `alwaysLoad` so its tools are sent up front.
+On my Claude Code account, the first request listed 91 deferred tool names, which cost 1,706 tokens. The closest-to-default run listed 21 names for 230 tokens. You can turn tool search off with `ENABLE_TOOL_SEARCH=false`, or mark a server you use constantly with `alwaysLoad` so its tools are sent up front.
 
 **In Codex**, MCP tools are deferred by default too, and the old switches that turned tool search off are retired. In code mode there is no search tool. The model writes a short script inside `exec` that filters a list called `ALL_TOOLS`, and the matching tools come back as the script's output. A per-server setting, `omit_tools_from`, sends a server's tools up front instead.
 
 ### What GitHub's server cost, deferred and up front
 
-We started fresh sessions with the prompt "Reply with just OK." (in Codex, "Reply with just OK. Do not run any tools.") and compared the first request with and without GitHub's server. To send its tools up front, we used `alwaysLoad` in Claude Code and `omit_tools_from` in Codex.
+I started fresh sessions with a prompt that needs no tools and compared the first request with and without GitHub's server, and with its tools sent up front.
 
 | First request of a fresh session | Claude Code | Codex |
 |---|---:|---:|
@@ -480,13 +528,13 @@ Deferred tool namespaces:
 
 `mcp__codex_tui` is the Codex app's own tool namespace, present in every session.
 
-In Codex, the up-front tools went inside `exec`, as code mode presents them; as separate function tools they added 5,573 instead. All the up-front numbers include GitHub's server instructions, and the two agents count with different tokenizers. Anthropic's widely quoted 26,000 tokens for GitHub's server was for 35 tools; the read-only default set we used has 27.
+In Codex, the up-front tools went inside `exec`, as code mode presents them; as separate function tools they added 5,573 instead. All the up-front numbers include GitHub's server instructions, and the two agents count with different tokenizers. Anthropic's widely quoted 26,000 tokens for GitHub's server was for 35 tools; the read-only default set I used has 27.
 
 Turning tool search off in Claude Code costs far more than GitHub's tools. `ENABLE_TOOL_SEARCH=false` also sends Claude Code's own deferred tools in full, so the first request grew to 81,160 tokens with no MCP server at all, and to 94,266 with GitHub connected.
 
 ### Loading a tool: the extra round trip
 
-In the session with tools deferred, we then asked for the title of one GitHub issue. Both agents took three requests, and the first of them only loaded the tool.
+In the session with tools deferred, I then asked for the title of one GitHub issue. Both agents took three requests, and the first of them only loaded the tool.
 
 | Request | Claude Code | Codex |
 |---|---|---|
@@ -508,7 +556,7 @@ In Codex, the script's output is the tool's description and a TypeScript declara
 
 The cost of tool search is one extra request when a tool is first needed, and that request carries the whole context. Sending GitHub's tools up front instead added about 12,000 tokens to every request in Claude Code and 5,600 to 6,700 in Codex, whether the tools were used or not.
 
-Neither app shows the loading step in the conversation. `/mcp` lists 28 tools for GitHub whether they are deferred or sent up front. Claude Code's `/context` marks MCP tools as "loaded on-demand"; we found no equivalent in Codex.
+Neither app shows the loading step in the conversation. `/mcp` lists 28 tools for GitHub whether they are deferred or sent up front. Claude Code's `/context` marks MCP tools as "loaded on-demand"; I found no equivalent in Codex.
 
 ## What are skills?
 A skill is a folder containing a `SKILL.md` file: a name, a one-line description and instructions for a task, plus optional scripts and reference files. Skills teach the agent how to do something with the tools it already has.
@@ -520,13 +568,13 @@ Skills rely on progressive disclosure, which means loading detail only when it i
 3. **Loaded if needed:** extra reference files in the skill's folder.
 4. **Never loaded:** scripts. The agent runs them, and only their output enters the context.
 
-**In Claude Code**, the skill list arrives in a message after your prompt. The model loads a skill by calling the `Skill` tool, or you invoke one directly with `/skill-name`. Once loaded, the instructions stay in the conversation. Custom commands are now skills too: `.claude/commands/deploy.md` and `.claude/skills/deploy/SKILL.md` both create `/deploy`.
+**In Claude Code**, the skill list is added to the request right after your prompt, as text Claude Code inserts for the model. The model loads a skill by calling the `Skill` tool, or you invoke one directly with `/skill-name`. Once loaded, the instructions stay in the conversation. Custom commands are now skills too: `.claude/commands/deploy.md` and `.claude/skills/deploy/SKILL.md` both create `/deploy`.
 
-**In Codex**, the skill list (name, description and file path) is a developer message, capped at 2% of the context window. The model reads `SKILL.md` itself with a shell command, or you mention a skill with `$skill-name`, and Codex inserts the full instructions into the conversation.
+**In Codex**, the skill list (name, description and file path) is part of Codex's own instructions, before your prompt, and is capped at 2% of the context window. The model reads `SKILL.md` itself with a shell command, or you mention a skill with `$skill-name`, and Codex inserts the full instructions into the conversation.
 
-The list is not free. On our Claude Code setup, 31 skill descriptions cost 6,204 tokens per request, and the 17 built-in skills on the closest-to-default run cost 2,872. Codex listed 16 skills, most of them from plugins on our account.
+Each listed skill adds its description to every request. The 31 skills on my Claude Code account cost 6,204 tokens per request, and the 17 built-in skills on the closest-to-default run cost 2,872. Codex listed 16 skills, most of them from plugins on my account.
 
-To see what one skill costs, we wrote `changelog-entry`, a 63-line skill (2,441 characters) that writes a `CHANGELOG.md` entry for uncommitted changes. We installed the same text in both tools, made a one-line bug fix, and asked for a changelog entry twice: once by the skill's name, and once in plain words.
+How much does one skill cost? I wrote a small skill, `changelog-entry`, that drafts a `CHANGELOG.md` entry for uncommitted changes, and installed the same text in both agents. After a one-line bug fix, I asked for a changelog entry twice: once by the skill's name, and once in plain words.
 
 | `changelog-entry` skill | Claude Code | Codex |
 |---|---|---|
@@ -538,14 +586,22 @@ To see what one skill costs, we wrote `changelog-entry`, a 63-line skill (2,441 
 
 Both agents chose the skill from the plain request on their own, and all four runs wrote a correct `### Fixed` entry. In Codex, the run called by name also read `SKILL.md` with `cat` after Codex had already inserted it, so the body entered the context twice. Codex's own instructions tell the model to avoid re-reading skills.
 
-So this skill cost about 100 tokens per request until it was used, and 700 to 900 tokens for the rest of the session after that, or about 1,350 in the Codex run that loaded it twice. Longer descriptions cost more: our 31 listed skills averaged about 200 tokens each.
+So this skill cost about 100 tokens per request until it was used, and 700 to 900 tokens for the rest of the session after that, or about 1,350 in the Codex run that loaded it twice. Longer descriptions cost more: my 31 listed skills averaged about 200 tokens each.
 
 Both tools follow the Agent Skills open standard, so a skill written for one usually works in the other. Simon Willison [called skills](https://simonwillison.net/2025/Oct/16/claude-skills/) "maybe a bigger deal than MCP" when they launched. The reason is cost: a skill adds knowledge for one line of context until it is used, without adding tools.
 
 ## What are hooks and plugins?
-A hook is your own script that the harness runs at a fixed point in the loop, for example before a tool runs, after a file edit or when a turn ends. The harness runs it every time, whatever the model decides.
+A hook is your own script that the harness runs at a fixed point in the loop, for example before a tool runs, after a file edit or when a turn ends. Hooks are deterministic guardrails: the harness runs them every time the event happens, whatever the model decides.
 
-That is why hooks suit rules that must always hold. From Anthropic's [guide to extending Claude Code](https://code.claude.com/docs/en/features-overview): "An instruction like 'never edit `.env`' in CLAUDE.md or a skill is a request, not a guarantee. A `PreToolUse` hook that blocks the edit is enforcement."
+Instructions are not deterministic. The model usually follows CLAUDE.md, AGENTS.md or a skill, but it can miss a rule in a long context or lose it in compaction. In Anthropic's [words](https://code.claude.com/docs/en/features-overview): "An instruction like 'never edit `.env`' in CLAUDE.md or a skill is a request, not a guarantee. A `PreToolUse` hook that blocks the edit is enforcement."
+
+So use instructions for guidance and hooks for rules that must hold: block edits to secrets, run the formatter after every edit, run the tests before the agent says it is done. The trade-offs: a hook sees only the event, not your intent, and a slow hook slows every action it is attached to.
+
+A hook guards only when it works. By default, Claude Code lets the action go ahead when a hook fails: when it can't start, exits with a code other than 0 or 2, times out or prints invalid JSON. In one of my client trials, Node dropped off the PATH, the guard hook failed with "Executable not found in $PATH", and the trial ran on without it.
+
+Set [`"onFailure": "block"`](https://code.claude.com/docs/en/hooks#block-the-action-when-a-hook-fails) on any hook that enforces a rule (Claude Code 2.1.295 and later). It has no effect on hooks at the end of a turn or task (`Stop`, `SubagentStop`, `TaskCompleted`, `TeammateIdle`) or on hooks that run in the background. If the `Stop` hook that runs your tests breaks, for example because its script is missing, the agent finishes anyway.
+
+Test the hook in every tool your team uses, too. The same guard ran in several IDE agents. In VS Code, its "ask" answer brought up a prompt; IntelliJ's agent ignored the ask and ran the command, so in IntelliJ my guard now blocks instead of asking.
 
 Hooks cost no context unless they return output for the model. Claude Code supports events such as `SessionStart`, `PreToolUse`, `PostToolUse` and `Stop`. Codex supports a similar set, and in code mode its hook decisions also apply to the tool calls inside an `exec` script.
 
@@ -556,7 +612,7 @@ If a good command-line tool exists and the agent has a shell, the CLI is often t
 
 The shell is a coding agent's most general tool. The model already knows `git`, `gh`, `npm`, `kubectl`, `aws` and `psql` from its training. A CLI adds no tool definitions, and the agent can filter its output with `--json`, `jq` or `grep` before the result enters the context.
 
-[Mario Zechner](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/) made that case in 2025. [Armin Ronacher](https://lucumr.pocoo.org/2025/8/18/code-mcps/) argued that an MCP server should expose code rather than dozens of tools, and Cloudflare's ["Code Mode"](https://blog.cloudflare.com/code-mode/) and Anthropic's ["Code execution with MCP"](https://www.anthropic.com/engineering/code-execution-with-mcp) both have the model write code that calls tools. Codex's code mode builds that idea into the harness.
+[Mario Zechner](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/) made that case in 2025. [Armin Ronacher](https://lucumr.pocoo.org/2025/8/18/code-mcps/) argued that an MCP server should expose code rather than dozens of tools, the idea behind [code mode](#what-is-tool-calling).
 
 MCP still has clear advantages:
 
@@ -568,7 +624,7 @@ MCP still has clear advantages:
 
 ### The same task through `gh` and through GitHub's MCP server
 
-We gave each agent the same task twice: "Look at issue #N in pallets/click and the pull request that fixed it. Summarise the bug, the fix, and the files the pull request changed." One run ended "Use the gh CLI." and had no MCP server. The other ended "Use the GitHub MCP tools." and had no `gh`.
+I gave each agent the same task twice: "Look at issue #N in pallets/click and the pull request that fixed it. Summarise the bug, the fix, and the files the pull request changed." One run ended "Use the gh CLI." and had no MCP server. The other ended "Use the GitHub MCP tools." and had no `gh`.
 
 | Run | Requests | Input tokens | Time | Answer |
 |---|---:|---:|---:|---|
@@ -622,9 +678,9 @@ Each extension changes a different part of the loop. Instruction files and skill
 ## Permissions, approvals and the sandbox
 Two controls limit what a model can do on your machine. Permissions decide when the agent must ask you before acting. The sandbox limits what a command can reach once it runs, enforced by the operating system.
 
-Both controls exist because asking about every step does not work. [Anthropic found](https://www.anthropic.com/engineering/claude-code-auto-mode) that "Claude Code users approve 93% of permission prompts", and that approval fatigue sets in: people "stop paying close attention to what they're approving." Classifiers and sandboxes let the agent work without a prompt for every step, while the sandbox still limits what its commands can reach.
+Both controls exist because asking about every step does not work. Claude Code users [approve 93% of permission prompts](https://www.anthropic.com/engineering/claude-code-auto-mode), and approval fatigue sets in: people stop paying close attention to what they approve. Classifiers and sandboxes let the agent work without a prompt for every step, while the sandbox still limits what its commands can reach.
 
-**Claude Code** calls the first control the permission mode. Since version 2.1.283, interactive sessions in the terminal and VS Code start in [auto mode](https://code.claude.com/docs/en/permission-modes): "A separate classifier model reviews actions before they run, blocking anything that escalates beyond your request, targets unrecognized infrastructure, or appears driven by hostile content Claude read." Anthropic adds that auto mode "reduces permission prompts but does not guarantee safety."
+**Claude Code** calls the first control the permission mode. Since version 2.1.283, interactive sessions in the terminal and VS Code start in [auto mode](https://code.claude.com/docs/en/permission-modes), in which a separate classifier model reviews actions before they run and blocks anything that goes beyond your request, targets unrecognised infrastructure or looks driven by hostile content the model read. Auto mode reduces permission prompts, but it does not guarantee safety.
 
 The other Claude Code modes are Manual (asks before anything except reads), `acceptEdits` (file edits without asking), `plan` (read and propose, no edits), `dontAsk` for locked-down scripts, and `bypassPermissions` for isolated containers only. Permission rules such as `Bash(npm run *)` allow, ask or deny specific actions, and deny rules apply in every mode.
 
@@ -644,6 +700,16 @@ Codex can also send approval requests to a separate reviewer agent instead of yo
 
 Claude Code also saves a [checkpoint](https://code.claude.com/docs/en/checkpointing) at every prompt, and `/rewind` restores your files or the conversation to that point. Checkpoints cannot undo actions on remote systems, such as a database change or a deployment.
 
+### From practice: what the classifier and the sandbox stopped
+
+Over two weeks of the client refactor described under [subagents](#what-are-subagents), Claude Code's auto-mode classifier blocked 6 of my lead agent's 8,542 shell commands. Two were exactly what it is for: deleting a remote branch with `git push origin --delete` after I had told the agent to carry on alone overnight, and searching my old session logs for GitHub token strings. Another was a harmless read of test files, blocked without a reason.
+
+The agent didn't work around the block. It wrote "I won't work around it; I'll leave it for you in the morning", and I approved the deletion when I was back.
+
+In Codex, the sandbox stopped my browser-testing agents from starting local containers, restarting the backend to test outages and writing their reports outside the project. Each time, the agent asked to run the command outside the sandbox with a one-line reason, such as "May I stop the local backend owned by this run to test the required 502 outage journeys?".
+
+There were 23, 21 and 49 such requests in three runs, and with auto-review on, a reviewer agent judged each one instead of me.
+
 ## Where they run: CLI, IDE, desktop app, web and SDK
 Every Claude Code app runs the same harness, and so does every Codex app. What changes between them is where the agent runs: on your machine, with your files and settings, or in a cloud virtual machine with a fresh copy of your repository.
 
@@ -653,7 +719,7 @@ Every Claude Code app runs the same harness, and so does every Codex app. What c
 
 **Claude Code** runs on your machine in the terminal, in VS Code (the extension bundles its own copy of the CLI), in JetBrains IDEs (the plugin runs the CLI) and in the desktop app. Sessions started at claude.ai/code, or from Slack, run in Anthropic-managed cloud machines. The mobile app and Remote Control are screens for sessions that run elsewhere.
 
-For automation, Claude Code's non-interactive mode (`claude -p`) runs one prompt and exits. The [Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) for Python and TypeScript "runs the Claude Code binary", and Anthropic's GitHub Action is built on it.
+For automation, Claude Code's non-interactive mode (`claude -p`) runs one prompt and exits. The [Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview) for Python and TypeScript runs the Claude Code binary, and Anthropic's GitHub Action is built on it.
 
 **Codex** has one open-source engine, Codex core, behind an App Server that every app talks to. The CLI, `codex exec` for scripts, the IDE extension, the Codex mode of the ChatGPT desktop app and the SDK use it on your machine. Codex Cloud, Slack requests and GitHub code reviews run it in OpenAI-hosted machines.
 
@@ -674,9 +740,9 @@ Claude Code and Codex run the same loop and solve the same problems. They differ
 
 | | Claude Code 2.1.321 | Codex CLI 0.167.0 |
 |---|---|---|
-| Model in our tests | Claude Opus 5.5 | GPT-6.1 Sol |
+| Model in my tests | Claude Opus 5.5 | GPT-6.1 Sol |
 | Tool packaging | Separate JSON tools (`Bash`, `Read`, `Edit`…) | One `exec` tool running JavaScript that calls nested tools |
-| First request, our setup | 42,583 tokens (32,602 closest to default) | 16,637 tokens |
+| First request, my setup | 42,583 tokens (32,602 closest to default) | 16,637 tokens |
 | Instruction file | `CLAUDE.md`, or `AGENTS.md` when there is none | `AGENTS.md` |
 | Context window | 1,000,000 tokens | 500,000 tokens (475,000 shown as usable) |
 | Automatic compaction | About 967,000 tokens, summary written by the model | 90% of the window, encrypted summary from OpenAI's servers |
@@ -686,12 +752,12 @@ Claude Code and Codex run the same loop and solve the same problems. They differ
 | Deferred tools | Names listed; loaded with `ToolSearch` | Server named in one line; found by filtering `ALL_TOOLS` inside `exec` |
 | Source code | Not open source | Codex core and CLI are open source |
 
-Claude Code's first request was larger in tokens on our accounts, but the two tools count tokens differently, and the 12,469-token Artifact tool on our Claude Code plan accounts for much of the gap.
+Claude Code's first request was larger in tokens on my accounts, but the two tools count tokens differently, and the 12,469-token Artifact tool on my Claude Code plan accounts for much of the gap.
 
 Both let the model do several actions per request: Claude Code through parallel tool calls and chained shell commands, Codex by writing one program that calls several tools.
 
 ## What this means for cost
-In our bug-fix run, Claude Code read 179,640 input tokens to produce 1,306 tokens of output. Both providers make that affordable by caching the unchanged start of each request: 90.5% of those input tokens in Claude Code, and 85.6% in Codex, were read from cache at a much lower price.
+In my bug-fix run, Claude Code read 179,640 input tokens to produce 1,306 tokens of output. Both providers make that affordable by caching the unchanged start of each request: 90.5% of those input tokens in Claude Code, and 85.6% in Codex, were read from cache at a much lower price.
 
 How that cache works, what breaks it, and how to check it in your own sessions is the subject of [Part 2 of this series: Prompt Caching Explained](../prompt-caching/README.md).
 
@@ -724,7 +790,7 @@ When an agent surprises you, look at the loop: what the harness sent in the requ
 
 **CLI:** a command-line interface. Both agents have one, and so do tools such as `git` and `gh`.
 
-**Code mode:** Codex's way of calling tools: the model writes JavaScript for one `exec` tool, which calls nested tools. Claude Code added an experimental, opt-in Code Mode in version 2.1.323, after our tests.
+**Code mode:** calling tools by writing code: the model writes a short program that calls its tools, instead of one tool call per action. Codex uses it for every current model, through one `exec` tool that runs JavaScript; Claude Code added it as an experimental opt-in in version 2.1.323.
 
 **Compaction:** replacing the conversation history with a summary when the context window fills up.
 
@@ -742,13 +808,15 @@ When an agent surprises you, look at the loop: what the harness sent in the requ
 
 **Effort:** a setting for how much the model thinks before replying. Higher effort means more reasoning tokens.
 
-**Fork:** a Claude Code subagent that starts with the whole conversation so far instead of a fresh context.
+**Fork:** a subagent that starts with a copy of the whole conversation so far instead of a fresh context. Codex subagents fork by default; Claude Code's start fresh unless Claude or you choose a fork.
 
 **Harness:** the program around the model that builds requests, runs tools and manages context. Claude Code and Codex are harnesses.
 
-**Hook:** your script that the harness runs at a fixed point in the loop, every time.
+**Hook:** your script that the harness runs at a fixed point in the loop, every time: a deterministic guardrail, as long as the hook itself doesn't fail.
 
 **Input tokens:** everything sent to the model in a request.
+
+**Instruction file (context file):** a Markdown file of project rules and context that the agent loads every session, such as CLAUDE.md or AGENTS.md.
 
 **LLM (large language model):** the model that reads and writes tokens, such as Claude Opus 5.5 or GPT-6.1 Sol.
 
@@ -766,9 +834,15 @@ When an agent surprises you, look at the loop: what the harness sent in the requ
 
 **Plugin:** an installable bundle of skills, subagents, hooks and MCP servers.
 
+**Post-training:** training after pretraining that turns the model into an assistant, through fine-tuning on examples and reinforcement learning.
+
+**Pretraining:** the first stage of training, in which the model learns to predict the next token from large amounts of text.
+
 **Prompt caching:** the provider's reuse of the unchanged start of a request at a lower price. [Part 2](../prompt-caching/README.md#what-is-prompt-caching) covers it.
 
-**Reasoning (thinking) tokens:** tokens the model spends thinking before it replies, billed as output and mostly hidden.
+**Reasoning (thinking) tokens:** tokens the model spends thinking before it replies, billed as output. You see at most a summary of them, depending on a setting.
+
+**Reinforcement learning (RL):** training in which the model attempts tasks and is rewarded for good results, such as code that passes the tests.
 
 **Request:** one call to the model. A turn usually contains several.
 
@@ -785,6 +859,8 @@ When an agent surprises you, look at the loop: what the harness sent in the requ
 **System reminder:** text Claude Code adds to the conversation for the model, such as your CLAUDE.md or the skills list.
 
 **Token:** a piece of text, often a word or part of a word, that models read, write and bill.
+
+**Tokenizer:** the part of a model family that splits text into tokens. Each family has its own, so token counts don't carry over between them.
 
 **Tool:** an action the harness offers the model, such as reading a file or running a command.
 
@@ -806,10 +882,10 @@ No. Claude is the family of models. Claude Code is the agent that runs a Claude 
 No. The 2021 Codex was a model. Today's Codex is OpenAI's coding agent (CLI, IDE extension, desktop app and Codex Cloud), and it runs current GPT models such as GPT-6.1 Sol.
 
 ### How does Claude Code work?
-Claude Code is a harness that runs a Claude model in a loop. When you press Enter, it sends the model its tool definitions, system prompt, your CLAUDE.md, the conversation so far and your prompt. It runs the tools the model asks for, such as shell commands, file edits and MCP tools, and sends the results back until the model replies without a tool call. In our test, one bug fix took 4 model requests.
+Claude Code is a harness that runs a Claude model in a loop. When you press Enter, it sends the model its tool definitions, system prompt, your CLAUDE.md, the conversation so far and your prompt. It runs the tools the model asks for, such as shell commands, file edits and MCP tools, and sends the results back until the model replies without a tool call. In my test, one bug fix took 4 model requests.
 
 ### How does Codex work?
-Codex runs the same kind of loop around a GPT model, in an open-source engine called Codex core. The main difference is code mode: the model writes a short JavaScript program for one `exec` tool, and that program calls the shell, file edits and MCP tools. In our test, the same bug fix took 6 model requests.
+Codex runs the same kind of loop around a GPT model, in an open-source engine called Codex core. The main difference is code mode: the model writes a short JavaScript program for one `exec` tool, and that program calls the shell, file edits and MCP tools. In my test, the same bug fix took 6 model requests.
 
 ### Why does my context fill up so fast?
 Every request carries the tool definitions, the instructions and the whole conversation, and every tool result (file contents, command output, MCP responses) stays in the conversation for the rest of the session. Large outputs fill it fastest. Run `/context` in Claude Code or `/status` in Codex to see how full it is, and use `/compact` or `/clear` when it gets large.
@@ -839,39 +915,47 @@ They solve different problems. MCP adds tools; a skill adds instructions for usi
 Yes, since version 2.1.277, when there is no CLAUDE.md in the working folder or any folder above it. To use both, import AGENTS.md from a one-line CLAUDE.md with `@AGENTS.md`.
 
 ### Does the CLI use more tokens than the desktop app?
-Each tool's apps run the same harness, so a request has the same structure in each. Differences come from what each app and setup loads, such as connected services, skills, plugins and app-specific tools; we measured only the CLIs. Check with `/context` or `/status`.
+Each tool's apps run the same harness, so a request has the same structure in each. Differences come from what each app and setup loads, such as connected services, skills, plugins and app-specific tools; I measured only the CLIs. Check with `/context` or `/status`.
 
-## How we measured
+## How I measured
 All measurements were made on 10 November 2026 on macOS, in one small demo repository: a Python library with six tests, two of which failed for one root cause. The bug-fix prompt was "Two tests fail in this repo. Find the root cause, fix it, and run the tests." The project had a one-line CLAUDE.md that imported an AGENTS.md of about 45 lines.
 
 - **Claude Code 2.1.321**, signed in with a Claude Team subscription, model Claude Opus 5.5 at the default medium effort, auto permission mode.
 - **Codex CLI 0.167.0**, signed in with a ChatGPT Pro subscription, model GPT-6.1 Sol at the default low effort, `workspace-write` sandbox with `on-request` approvals.
 
-For Claude Code, request sizes are the usage numbers recorded per request in the session file, and the requests themselves come from Claude Code's own request records. We sized each part of the first request with Anthropic's token-counting endpoint, as the difference between the full request and the request without that part. The counted total was 0.3% below the billed total (42,450 against 42,583).
+For Claude Code, request sizes are the usage numbers recorded per request in the session file, and the requests themselves come from Claude Code's own request records. I sized each part of the first request with Anthropic's token-counting endpoint, as the difference between the full request and the request without that part. The counted total was 0.3% below the billed total (42,450 against 42,583).
 
-For Codex, request sizes come from the usage record that Codex saves for each request. Codex does not report the size of each part, so we inferred the tool and instruction sizes from where the cached tokens stopped, and estimated the smaller parts from character counts. We read Codex's open-source code at release `rust-v0.167.0` to confirm how requests are built.
+For Codex, request sizes come from the usage record that Codex saves for each request. Codex does not report the size of each part, so I inferred the tool and instruction sizes from where the cached tokens stopped, and estimated the smaller parts from character counts. I read Codex's open-source code at release `rust-v0.167.0` to confirm how requests are built.
 
 Each scenario ran once, so the numbers show how the loop behaves, not average performance.
 
-Both accounts had extras that a fresh install would not have, such as connected services and organisation skills; we report a closest-to-default run alongside. For Claude Code, that run used `claude --safe-mode --strict-mcp-config`, which leaves out connected services, organisation skills, the project's CLAUDE.md and auto memory. We used public documentation and real requests, not leaked source.
+Both accounts had extras that a fresh install would not have, such as connected services and organisation skills; I report a closest-to-default run alongside. For Claude Code, that run used `claude --safe-mode --strict-mcp-config`, which leaves out connected services, organisation skills, the project's CLAUDE.md and auto memory. I used public documentation and real requests, not leaked source.
 
-For the MCP, tool search and skill measurements, we connected GitHub's remote MCP server at `https://api.githubcopilot.com/mcp/` in read-only mode (the `X-MCP-Readonly: true` header, and in Claude Code also the `/mcp/readonly` path) with its default toolsets. It listed 28 read-only tools, and 27 reached the model in both agents. We read only public issues and pull requests in `pallets/click` and `pallets/flask`.
+For the MCP, tool search and skill measurements, I connected GitHub's remote MCP server at `https://api.githubcopilot.com/mcp/` in read-only mode (the `X-MCP-Readonly: true` header, and in Claude Code also the `/mcp/readonly` path) with its default toolsets. It listed 28 read-only tools, and 27 reached the model in both agents. I read only public issues and pull requests in `pallets/click` and `pallets/flask`.
 
-Claude Code ran with `--strict-mcp-config`, so only the servers we passed in loaded, plus the 20 tools of its built-in Claude in Chrome server. Its first request without MCP was 39,918 tokens, below the 42,583 of the main run, which also loaded the account's connected services. Codex kept its closest-to-default settings, with every MCP setting passed as a `-c` override.
+Claude Code ran with `--strict-mcp-config`, so only the servers I passed in loaded, plus the 20 tools of its built-in Claude in Chrome server. Its first request without MCP was 39,918 tokens, below the 42,583 of the main run, which also loaded the account's connected services. Codex kept its closest-to-default settings, with every MCP setting passed as a `-c` override.
 
-To send GitHub's tools up front, we set `alwaysLoad: true` in Claude Code and `omit_tools_from` in Codex; to turn tool search off in Claude Code, `ENABLE_TOOL_SEARCH=false`. The `gh` runs used gh 2.103.3 with a token in `GH_TOKEN`. In the MCP runs, `gh` was off the PATH, and in Claude Code also blocked with a deny rule, because its shell restores the login shell's PATH.
+The fresh-session prompt was "Reply with just OK." (in Codex, "Reply with just OK. Do not run any tools."). To send GitHub's tools up front, I set `alwaysLoad: true` in Claude Code and `omit_tools_from` in Codex; to turn tool search off in Claude Code, `ENABLE_TOOL_SEARCH=false`. The `gh` runs used gh 2.103.3 with a token in `GH_TOKEN`. In the MCP runs, `gh` was off the PATH, and in Claude Code also blocked with a deny rule, because its shell restores the login shell's PATH.
 
-The `changelog-entry` skill had identical text in both agents, in `.claude/skills/` for Claude Code and `.agents/skills/` for Codex.
+Codex's configuration reference lists the code-mode feature switch as off by default, but the model catalogue that Codex downloads sets every current model to code mode only, so the switch has no effect.
+
+The `changelog-entry` skill was 63 lines (2,441 characters) and had identical text in both agents, in `.claude/skills/` for Claude Code and `.agents/skills/` for Codex.
+
+The "From practice" figures come from my own session logs from August to November 2026: Claude Code's session files and Codex's rollout files. I counted each request once, by its request ID or its cumulative usage record, and counted delegated agents from the records of the app that launched them. Codex's auto-review sessions are the rollouts marked as its guardian subagent. Client names are left out.
 
 ## Sources
-**Claude Code documentation** (read 10 November 2026): [How Claude Code works](https://code.claude.com/docs/en/how-claude-code-works) · [Glossary](https://code.claude.com/docs/en/glossary) · [Tools reference](https://code.claude.com/docs/en/tools-reference) · [Context window](https://code.claude.com/docs/en/context-window) · [Memory](https://code.claude.com/docs/en/memory) · [MCP](https://code.claude.com/docs/en/mcp) · [Skills](https://code.claude.com/docs/en/skills) · [Subagents](https://code.claude.com/docs/en/sub-agents) · [Permission modes](https://code.claude.com/docs/en/permission-modes) · [Extend Claude Code](https://code.claude.com/docs/en/features-overview) · [Agent loop (Agent SDK)](https://code.claude.com/docs/en/agent-sdk/agent-loop) · [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) · [Sandboxing](https://code.claude.com/docs/en/sandboxing) · [Checkpointing](https://code.claude.com/docs/en/checkpointing)
+**Claude Code documentation** (read 10 November 2026): [How Claude Code works](https://code.claude.com/docs/en/how-claude-code-works) · [Glossary](https://code.claude.com/docs/en/glossary) · [Tools reference](https://code.claude.com/docs/en/tools-reference) · [Context window](https://code.claude.com/docs/en/context-window) · [Memory](https://code.claude.com/docs/en/memory) · [MCP](https://code.claude.com/docs/en/mcp) · [Skills](https://code.claude.com/docs/en/skills) · [Subagents](https://code.claude.com/docs/en/sub-agents) · [Permission modes](https://code.claude.com/docs/en/permission-modes) · [Extend Claude Code](https://code.claude.com/docs/en/features-overview) · [Agent loop (Agent SDK)](https://code.claude.com/docs/en/agent-sdk/agent-loop) · [Agent SDK overview](https://code.claude.com/docs/en/agent-sdk/overview) · [Sandboxing](https://code.claude.com/docs/en/sandboxing) · [Checkpointing](https://code.claude.com/docs/en/checkpointing) · [Model configuration](https://code.claude.com/docs/en/model-config) · [Code Mode](https://code.claude.com/docs/en/code-mode) (read 15 November 2026)
 
-**Codex documentation** (read 10 November 2026): [Glossary](https://learn.chatgpt.com/docs/glossary) · [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) · [Sandboxing](https://learn.chatgpt.com/docs/sandboxing) · [Approvals and security](https://learn.chatgpt.com/docs/agent-approvals-security) · [MCP](https://learn.chatgpt.com/docs/extend/mcp) · [Skills](https://learn.chatgpt.com/docs/build-skills) · [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents) · [Hooks](https://learn.chatgpt.com/docs/hooks) · [Models](https://learn.chatgpt.com/docs/models) · [Configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference) · [Memories](https://learn.chatgpt.com/docs/customization/memories) · [Source code](https://github.com/openai/codex)
+**Codex documentation** (read 10 November 2026): [Glossary](https://learn.chatgpt.com/docs/glossary) · [AGENTS.md](https://learn.chatgpt.com/docs/agent-configuration/agents-md) · [Sandboxing](https://learn.chatgpt.com/docs/sandboxing) · [Approvals and security](https://learn.chatgpt.com/docs/agent-approvals-security) · [MCP](https://learn.chatgpt.com/docs/extend/mcp) · [Skills](https://learn.chatgpt.com/docs/build-skills) · [Subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents) · [Hooks](https://learn.chatgpt.com/docs/hooks) · [Models](https://learn.chatgpt.com/docs/models) · [Configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference) · [Memories](https://learn.chatgpt.com/docs/customization/memories) · [Source code](https://github.com/openai/codex) · [Configuration reference, reasoning settings](https://developers.openai.com/codex/config-reference) (read 15 November 2026)
 
-**Vendor engineering posts:** Michael Bolin, [Unrolling the Codex agent loop](https://openai.com/index/unrolling-the-codex-agent-loop/) · Celia Chen, [Unlocking the Codex harness](https://openai.com/index/unlocking-the-codex-harness/) · Ryan Lopopolo, [Harness engineering](https://openai.com/index/harness-engineering/) · Anthropic, [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) · [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) · [Introducing advanced tool use](https://www.anthropic.com/engineering/advanced-tool-use) · [Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) · [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) · [Scaling Managed Agents](https://www.anthropic.com/engineering/managed-agents) · [How we built Claude Code auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode)
+**Vendor engineering posts:** OpenAI, [Introducing Codex](https://openai.com/index/introducing-codex/) · Michael Bolin, [Unrolling the Codex agent loop](https://openai.com/index/unrolling-the-codex-agent-loop/) · Celia Chen, [Unlocking the Codex harness](https://openai.com/index/unlocking-the-codex-harness/) · Ryan Lopopolo, [Harness engineering](https://openai.com/index/harness-engineering/) · Anthropic, [Building effective agents](https://www.anthropic.com/engineering/building-effective-agents) · [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents) · [Introducing advanced tool use](https://www.anthropic.com/engineering/advanced-tool-use) · [Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp) · [Effective harnesses for long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents) · [Scaling Managed Agents](https://www.anthropic.com/engineering/managed-agents) · [How we built Claude Code auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode)
 
-**Standards and model documentation:** [Model Context Protocol introduction](https://modelcontextprotocol.io/docs/getting-started/intro) · [MCP specification changelog, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) · [Agent Skills](https://agentskills.io) · [AGENTS.md](https://agents.md) · [Anthropic token counting](https://platform.claude.com/docs/en/build-with-claude/token-counting) · [Anthropic context windows](https://platform.claude.com/docs/en/build-with-claude/context-windows) · [OpenAI key concepts](https://developers.openai.com/api/docs/concepts) · [Anthropic, how tool use works](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works) · [OpenAI compaction guide](https://developers.openai.com/api/docs/guides/compaction) · [Linux Foundation, Agentic AI Foundation](https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation)
+**Standards and model documentation:** [Model Context Protocol introduction](https://modelcontextprotocol.io/docs/getting-started/intro) · [MCP specification changelog, 2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28/changelog) · [Agent Skills](https://agentskills.io) · [AGENTS.md](https://agents.md) · [Anthropic token counting](https://platform.claude.com/docs/en/build-with-claude/token-counting) · [Anthropic extended thinking](https://platform.claude.com/docs/en/build-with-claude/thinking) · [OpenAI reasoning models](https://developers.openai.com/api/docs/guides/reasoning) · [Anthropic context windows](https://platform.claude.com/docs/en/build-with-claude/context-windows) · [OpenAI key concepts](https://developers.openai.com/api/docs/concepts) · [Anthropic, how tool use works](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works) · [OpenAI compaction guide](https://developers.openai.com/api/docs/guides/compaction) · [Linux Foundation, Agentic AI Foundation](https://www.linuxfoundation.org/press/linux-foundation-announces-the-formation-of-the-agentic-ai-foundation)
 
-**Independent writing and research:** Simon Willison, [on defining agents](https://simonwillison.net/2025/Sep/18/agents/) and [Claude Skills are awesome, maybe a bigger deal than MCP](https://simonwillison.net/2025/Oct/16/claude-skills/) · Thorsten Ball, [How to Build an Agent](https://ampcode.com/how-to-build-an-agent) · [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) · Chroma, [Context Rot](https://www.trychroma.com/research/context-rot) · Liu et al., [Lost in the Middle](https://arxiv.org/abs/2307.03172) · Andrej Karpathy on [context engineering](https://x.com/karpathy/status/1937902205765607626) · Mario Zechner, [What if you don't need MCP at all?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/) · Armin Ronacher, [Your MCP Doesn't Need 30 Tools: It Needs Code](https://lucumr.pocoo.org/2025/8/18/code-mcps/) · Cloudflare, [Code Mode](https://blog.cloudflare.com/code-mode/)
+**Independent writing and research:** Simon Willison, [on defining agents](https://simonwillison.net/2025/Sep/18/agents/) and [Claude Skills are awesome, maybe a bigger deal than MCP](https://simonwillison.net/2025/Oct/16/claude-skills/) · [mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) · Chroma, [Context Rot](https://www.trychroma.com/research/context-rot) · Liu et al., [Lost in the Middle](https://arxiv.org/abs/2307.03172) · Andrej Karpathy on [context engineering](https://x.com/karpathy/status/1937902205765607626) · Mario Zechner, [What if you don't need MCP at all?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/) · Armin Ronacher, [Your MCP Doesn't Need 30 Tools: It Needs Code](https://lucumr.pocoo.org/2025/8/18/code-mcps/)
 
-**Changelog:** 10 November 2026, first version.
+**Code mode research and practice:** Wang et al., [Executable Code Actions Elicit Better LLM Agents (CodeAct)](https://arxiv.org/abs/2402.01030) · Hugging Face, [smolagents](https://huggingface.co/blog/smolagents) · Cloudflare, [Code Mode](https://blog.cloudflare.com/code-mode/)
+
+**Hooks, auto-compaction and forks** (read 15 November 2026): [Claude Code hooks](https://code.claude.com/docs/en/hooks) · [Claude Code settings reference](https://code.claude.com/docs/en/settings-reference) · [Codex subagent tool definitions](https://github.com/openai/codex/blob/main/codex-rs/core/src/tools/handlers/multi_agents_spec.rs)
+
+**Changelog:** 10 November 2026, first version. 15 November 2026: written in the first person; reasoning summaries, post-training, tokenizers and the history of code mode added; the agent loop shown in TypeScript; a compaction example from a client project added; measurement details moved to the method section; hook failures, the auto-compact setting, forks, and notes from practice on delegation, permissions and hidden requests added.
