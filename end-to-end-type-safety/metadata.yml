@@ -18,7 +18,7 @@ open_graph:
   image: assets/og-image.png
   image_width: 2400
   image_height: 1260
-  image_alt: "End-to-End Type Safety: keeping your API and frontend in sync. One contract runs from the database through the API to the frontend, checked by type checks, runtime validation and E2E tests."
+  image_alt: "End-to-End Type Safety: keeping your API and frontend in sync. Types check your code, not your data and not the feature: type checks ask whether the code is compatible, runtime validation whether the values are valid, and E2E tests whether the feature works."
 
 twitter:
   card: summary_large_image

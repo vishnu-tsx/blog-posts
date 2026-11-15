@@ -18,7 +18,7 @@ open_graph:
   image: assets/og-image.png
   image_width: 2400
   image_height: 1260
-  image_alt: "How Coding Agents Work: inside Claude Code and Codex. For one prompt to fix two failing tests, Claude Code made 4 model requests and Codex made 6."
+  image_alt: "How Coding Agents Work: inside Claude Code and Codex. The model only writes text; the harness does the work. The model asks the harness for a tool and gets the result back, and the harness reads, edits and runs commands on your machine."
 
 twitter:
   card: summary_large_image

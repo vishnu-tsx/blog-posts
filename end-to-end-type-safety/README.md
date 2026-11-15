@@ -2,7 +2,7 @@
 
 By Vishnumohan R K · 10 September 2026 · 8 min read · Originally published on [CodeWalnut](https://www.codewalnut.com/insights/end-to-end-type-safety-keeping-your-api-and-frontend-in-sync)
 
-![End-to-End Type Safety: keeping your API and frontend in sync. One contract runs from the database through the API to the frontend, checked by type checks, runtime validation and E2E tests.](assets/og-image.png)
+![End-to-End Type Safety: keeping your API and frontend in sync. Types check your code, not your data and not the feature: type checks ask whether the code is compatible, runtime validation whether the values are valid, and E2E tests whether the feature works.](assets/og-image.png)
 A frontend and backend can each pass their type checks and still disagree on the data they exchange.
 
 On one of the projects that I was working on, the frontend was built against an agreed response format. The backend response shape changed during implementation, and the mismatch surfaced when we connected the two. Each codebase’s type checks only covered its own version of the response.

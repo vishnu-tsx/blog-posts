@@ -18,7 +18,7 @@ open_graph:
   image: assets/og-image.png
   image_width: 2400
   image_height: 1260
-  image_alt: "Prompt Caching Explained. In one Claude Code task of 4 requests, 90.5% of input tokens were read from cache, for an API-equivalent cost of $0.20 instead of $0.74."
+  image_alt: "Prompt Caching Explained. Agents resend everything; the cache makes it cheap. In one Claude Code prompt of 4 requests, most of every request was read from cache, so the task cost $0.20 at API prices instead of $0.74."
 
 twitter:
   card: summary_large_image
